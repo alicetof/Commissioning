@@ -4,7 +4,7 @@
 VERBOSE=""
 
 if [ -z "$1" ]; then
-    echo "usage: ./qc_analysis [filein] [fileout]"
+    echo "usage: ./runQCdiagnostics_noise.sh [filein] [fileout]"
     exit 1
 fi
 FILEIN=$1
@@ -18,5 +18,3 @@ atc-file-proxy -b --rate 100 \
 		      --tof-compressor-conet-mode $VERBOSE \
     | \
     o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofdiagnostics.json
-#    o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofcompressed.json
-

@@ -48,16 +48,20 @@ VERBOSE=""
 o2-dpl-raw-proxy -b --session default \
     --dataspec "$PROXY_SPEC" \
     --readout-proxy '--channel-config "name=readout-proxy,type=pull,method=connect,address=ipc:///tmp/stf-builder-dpl-pipe-0,transport=shmem,rateLogging=1"' \
-    | o2-tof-compressor -b --session default \
-    --tof-compressor-rdh-version 6 \
-    --tof-compressor-config "$COMPR_CONF" \
-    $VERBOSE \
-    | o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofraw.json --session default \
-    | o2-tof-reco-workflow -b --input-type raw --disable-mc --output-type digits --session default --disable-root-output \
-    | o2-tof-digit-writer-workflow -b --ntf 1 --session default \
+    --fairmq-recv-buffer-size 1 \
     | o2-dpl-output-proxy -b --session default \
-    --dataspec "A:TOF/CRAWDATA;dd:FLP/DISTSUBTIMEFRAME/0" \
+    --dataspec "A:TOF/RAWDATA;dd:FLP/DISTSUBTIMEFRAME/0" \
     --dpl-output-proxy '--channel-config "name=downstream,type=push,method=bind,address=ipc:///tmp/stf-pipe-0,rateLogging=1,transport=shmem"' \
     --run
+
+#    | o2-tof-compressor -b --session default \
+#    --tof-compressor-rdh-version 6 \
+#    --tof-compressor-config "$COMPR_CONF" \
+#    $VERBOSE \
+
+#    | o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofraw.json --session default \
+
+#    | o2-tof-reco-workflow -b --input-type raw --disable-mc --output-type digits --session default --disable-root-output \
+#    | o2-tof-digit-writer-workflow -b --ntf 1 --session default \
 
 

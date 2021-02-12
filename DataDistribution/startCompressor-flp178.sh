@@ -2,6 +2,7 @@
 
 ### on FLP 178 we have the following sectors
 SECTORS="00 01 02 03 04 14 15 16 17"
+SECTORS="03 04 14 15"
 
 ### Crate XX --> A:TOF/RAWDATA/1280+XX
 
@@ -36,28 +37,34 @@ echo $PROXY_SPEC
 echo "=== COMPR_CONF"
 echo $COMPR_CONF
 
+#exit
+
 #PROXY_SPEC="x12:TOF/RAWDATA/12;x13:TOF/RAWDATA/13;x14:TOF/RAWDATA/14;x15:TOF/RAWDATA/15;dd:FLP/DISTSUBTIMEFRAME/0"
 #COMPR_CONF="x12:TOF/RAWDATA/12,x13:TOF/RAWDATA/13,x14:TOF/RAWDATA/14,x15:TOF/RAWDATA/15"
 
-#PROXY_SPEC="x1:TOF/RAWDATA/1792;x2:TOF/RAWDATA/2048;dd:FLP/DISTSUBTIMEFRAME/0"
-#COMPR_CONF="x1:TOF/RAWDATA/1792,x2:TOF/RAWDATA/2048"
+PROXY_SPEC="x:TOF/RAWDATA;dd:FLP/DISTSUBTIMEFRAME/0"
+COMPR_CONF="x:TOF/RAWDATA"
 
 VERBOSE=""
 #VERBOSE="--tof-compressor-verbose --tof-compressor-decoder-verbose"
 
+#export LD_DEBUG=files
+#export LD_LIBRARY_PATH=/tmp:$LD_LIBRARY_PATH
+
 o2-dpl-raw-proxy -b --session default \
     --dataspec "$PROXY_SPEC" \
     --readout-proxy '--channel-config "name=readout-proxy,type=pull,method=connect,address=ipc:///tmp/stf-builder-dpl-pipe-0,transport=shmem,rateLogging=1"' \
-    | o2-tof-compressor -b --session default \
+    | o2-tof-compressor -b --session default --pipeline "tof-compressor-0:4" \
     --tof-compressor-rdh-version 6 \
     --tof-compressor-config "$COMPR_CONF" \
     $VERBOSE \
-    | o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofraw.json --session default \
-    | o2-tof-reco-workflow -b --input-type raw --disable-mc --output-type digits --session default --disable-root-output \
-    | o2-tof-digit-writer-workflow -b --ntf 1 --session default \
-    | o2-dpl-output-proxy -b --session default \
+    | /tmp/o2-dpl-output-proxy -b --session default --severity info \
     --dataspec "A:TOF/CRAWDATA;dd:FLP/DISTSUBTIMEFRAME/0" \
-    --dpl-output-proxy '--channel-config "name=downstream,type=push,method=bind,address=ipc:///tmp/stf-pipe-0,rateLogging=1,transport=shmem"' \
+    --dpl-output-proxy '--channel-config "name=downstream,type=push,method=connect,address=ipc:///tmp/stf-pipe-0,rateLogging=1,transport=shmem"' \
     --run
 
+#    | o2-qc -b --config json://${QUALITYCONTROL_ROOT}/etc/tofraw.json --session default \
+
+#    | o2-tof-reco-workflow -b --input-type raw --disable-mc --output-type digits --session default --disable-root-output \
+#    | o2-tof-digit-writer-workflow -b --ntf 1 --session default \
 

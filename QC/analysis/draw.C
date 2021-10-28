@@ -2,7 +2,7 @@ void histo_hestetics(TH1* h);
 void canvas_hestetics_single(TCanvas* c);
 void canvas_hestetics_layout(TCanvas* c, int n = 3, int n1 = 0);
 
-void draw(){
+void draw(TString run = "505285"){
 
     /*
     [0] hHits
@@ -19,13 +19,12 @@ void draw(){
 
     const int n = 10; 
     TString name[n] = {"hHits", "hSlotPartMask", "hIndexEOIsNoise", "hIndexEOInTimeWin", "hIndexEOHitRate", "TOFRawsMulti", "TOFRawHitMap", "TOFRawsTime", "OrbitDDL", "mean_of_hits"};    
-    TString run = "505285";
     TFile* f[n];    
     TH1F* h[n];
     for (int i = 0; i < n; i++){
-        f[i] = TFile::Open(Form("%s.root",name[i].Data()));
+        f[i] = TFile::Open(Form("Run%s/%s.root",run.Data(),name[i].Data()));
         h[i] = (TH1F*)f[i]->Get("ccdb_object");
-        histo_hestetics(h[i]);
+        //histo_hestetics(h[i]);
     }
 
     TLatex *label = new TLatex();
@@ -50,7 +49,7 @@ void draw(){
     h[3]->SetTitle("All channels, noisy in red");
     h[2]->SetLineColor(kRed);
     h[2]->Draw("HIST SAME"); 
-    cnoise->SaveAs("noise_layout.png");
+    cnoise->SaveAs(Form("Run%s/noise_layout.png",run.Data()));
 
     //---------------------------------
     //-----------RAW-----------------
@@ -66,7 +65,7 @@ void draw(){
     //craw->cd(2)->SetLogz();
     h[1]->Draw("colz"); 
     craw->cd(3);
-    craw->SaveAs("raw_layout.png");
+    craw->SaveAs(Form("Run%s/raw_layout.png",run.Data()));
     
     //---------------------------------
     //-----------DIGITS-----------------
@@ -83,27 +82,28 @@ void draw(){
     h[7]->Draw(); 
     cdig->cd(4);
     h[8]->Draw("colz");  
-    cdig->SaveAs("digits_layout.png");
+    cdig->SaveAs(Form("Run%s/digits_layout.png",run.Data()));
 
     //---------------------------------
     //-----------TRENDING-----------------
     //---------------------------------
     TCanvas* ctrend = new TCanvas("ctrend","",1800,800);
     h[9]->Draw();
-    //ctrend->SaveAs("trending.png");
+    ctrend->SaveAs("trending.png");
 
-    /*TCanvas* csingle[n];
-    for (int i = 0; i < n; i++){
+    TCanvas* csingle[n];
+    for (int i = 0; i < n-1; i++){
         csingle[i] = new TCanvas(Form("c_%s",name[i].Data()),"",1200,800);
-        if(i==0)csingle[i]->SetLogy();
-        h[i]->Draw("colz");
-        label-> DrawLatex(0.2, 0.8, Form("Run %s", run.Data()));     
-        csingle[i]->SaveAs(Form("%s.png",name[i].Data()));
-    }*/
+        if(i==0 || i==2 || i==3 || i==4)csingle[i]->SetLogy();
+        if(i==6)csingle[i]->SetLogz();
+        h[i]->Draw("colz HIST");
+        label-> DrawLatex(0.27, 0.8, Form("Run %s", run.Data()));     
+        csingle[i]->SaveAs(Form("Run%s/%s.png",run.Data(),name[i].Data()));
+    }
 }
 
 void histo_hestetics(TH1* h){
-    h->SetStats(0);
+    //h->SetStats(0);
     //h->GetYaxis()->SetTitleSize(0.05);
     //h->GetXaxis()->SetTitleSize(0.05);
     

@@ -7,7 +7,7 @@ from common import verbose_msg, set_verbose_mode, get_default_parser, msg, get_c
 import os
 
 
-def convert_timestamp(ts):
+def convert_timestamp(ts, make_timestamp=False):
     """
     Converts the timestamp in milliseconds in human readable format or vice versa if passing a string
     """
@@ -15,17 +15,17 @@ def convert_timestamp(ts):
     def is_number():
         try:
             int(ts)
-            print(ts, "is a number")
             return True
         except ValueError:
             pass
-        print(ts, "is not a number")
         return False
 
     if not is_number():
         return int(datetime.strptime(ts, "%d/%m/%Y, %H:%M:%S").timestamp()*1000)
     if type(ts) is str:
         ts = int(ts)
+        if make_timestamp:
+            return ts
     return datetime.utcfromtimestamp(ts/1000).strftime('%Y-%m-%d, %H:%M:%S')
 
 
@@ -50,6 +50,9 @@ def get_ccdb_obj(ccdb_path,
     If `out_path` is a file name and not a path, then the output file will be renamed to the requested name.
     If 'tag' is True then the filename will be renamed after the timestamp.
     """
+    if type(timestamp) is not int:
+        raise ValueError("timestamp must be an integer", type(timestamp))
+
     def check_rootfile(fname):
         try:
             f = TFile(fname, "READ")
@@ -83,6 +86,7 @@ def get_ccdb_obj(ccdb_path,
     if use_o2_api:
         api = get_ccdb_api(host)
         if timestamp == -1:
+            print("Getting current timestamp")
             timestamp = o2.ccdb.getCurrentTimestamp()
         metadata = std.map('string,string')()
         api.retrieveBlob(ccdb_path,
@@ -112,7 +116,8 @@ def get_ccdb_obj(ccdb_path,
             if interesting_metadata[0] != "" and i[0] not in interesting_metadata:
                 continue
             if i[0] in m_d:
-                verbose_msg(i, convert_timestamp(int(i[1])))
+                verbose_msg(i, convert_timestamp(int(i[1])),
+                            "delta=", i - timestamp)
             else:
                 verbose_msg(i)
         if timestamp < m_d["Valid-From"] or timestamp > m_d["Valid-Until"]:
@@ -141,7 +146,7 @@ def main(ccdb_path,
          host="qcdb.cern.ch:8083",
          show=False,
          tag=None):
-
+    timestamp = convert_timestamp(timestamp, make_timestamp=True)
     downloaded = []
     # The input file is a list of objects
     if os.path.isfile(ccdb_path):

@@ -38,6 +38,8 @@ def update_all_canvases():
 
 
 def remove_canvas(n):
+    if type(n) is not str:
+        n = n.GetName()
     nice_canvases[n] = None
 
 

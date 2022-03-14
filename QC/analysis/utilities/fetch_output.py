@@ -11,9 +11,22 @@ def convert_timestamp(ts):
     """
     Converts the timestamp in milliseconds in human readable format or vice versa if passing a string
     """
-    if type(ts) is str:
+
+    def is_number():
+        try:
+            int(ts)
+            print(ts, "is a number")
+            return True
+        except ValueError:
+            pass
+        print(ts, "is not a number")
+        return False
+
+    if not is_number():
         return int(datetime.strptime(ts, "%d/%m/%Y, %H:%M:%S").timestamp()*1000)
-    return datetime.utcfromtimestamp(ts/1000).strftime('%Y-%m-%d %H:%M:%S')
+    if type(ts) is str:
+        ts = int(ts)
+    return datetime.utcfromtimestamp(ts/1000).strftime('%Y-%m-%d, %H:%M:%S')
 
 
 def get_ccdb_obj(ccdb_path,
@@ -33,7 +46,8 @@ def get_ccdb_obj(ccdb_path,
                                        "Valid-Until",
                                        ""]):
     """
-    Gets the ccdb object from 'ccdb_path' and 'timestamp' and downloads it into 'out_path'
+    Gets the ccdb object from 'ccdb_path' and 'timestamp' and downloads it into 'out_path'.
+    If `out_path` is a file name and not a path, then the output file will be renamed to the requested name.
     If 'tag' is True then the filename will be renamed after the timestamp.
     """
     def check_rootfile(fname):
@@ -53,10 +67,15 @@ def get_ccdb_obj(ccdb_path,
     verbose_msg("Getting obj", host, ccdb_path, "with timestamp",
                 timestamp, convert_timestamp(timestamp))
     out_name = "snapshot.root"
-    if tag:
-        out_name = f"snapshot_{timestamp}.root"
     out_path = os.path.normpath(out_path)
     fullname = os.path.join(out_path, ccdb_path, out_name)
+    if "." in os.path.split(out_path)[-1]:
+        fullname = out_path
+        out_name = os.path.split(out_path)[-1]
+        out_path = os.path.split(out_path)[0]
+    if tag:
+        out_name = os.path.splitext(out_name)
+        out_name = f"{out_name[0]}_{timestamp}{out_name[1]}"
     if os.path.isfile(fullname) and not overwrite_preexisting:
         if check_rootfile(fullname):
             msg("File", fullname, "already existing, not overwriting")
@@ -121,10 +140,7 @@ def main(ccdb_path,
          out_path="/tmp/",
          host="qcdb.cern.ch:8083",
          show=False,
-         preserve_ccdb_structure=True,
          tag=None):
-    if type(timestamp) is not int:
-        timestamp = convert_timestamp(timestamp)
 
     downloaded = []
     # The input file is a list of objects
@@ -149,13 +165,6 @@ def main(ccdb_path,
                            show=show,
                            host=host)
         downloaded.append(obj)
-    if not preserve_ccdb_structure:
-        print("Printing")
-        for i in downloaded:
-            j = i.split("/")[-2]
-            j = os.path.join(out_path, f"{j}.root")
-            print(i,"->", j)
-            os.rename(i, j)
 
 
 if __name__ == "__main__":
@@ -186,8 +195,6 @@ if __name__ == "__main__":
     set_verbose_mode(args)
 
     for i in args.timestamp:
-        if i.isdecimal():
-            i = int(i)
         main(ccdb_path=args.ccdb_path,
              out_path=args.out_path,
              timestamp=i,

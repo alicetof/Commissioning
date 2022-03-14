@@ -42,6 +42,19 @@ def remove_canvas(n):
         n = n.GetName()
     nice_canvases[n] = None
 
+def save_all_canvases(n):
+    dn = list(nice_canvases.keys())
+    dn = [dn[0], dn[-1]]
+    for i in nice_canvases:
+        c = nice_canvases[i]
+        if c is None:
+            continue
+        if i == dn[0]:
+            c.SaveAs(f"{n}[")
+        c.SaveAs(f"{n}")
+        if i == dn[1]:
+            c.SaveAs(f"{n}]")
+
 
 def drawn_nice_canvas(name, x=800, y=800, logx=False, logy=False, logz=True):
     return draw_nice_canvas(name, x=x, y=y, logx=logx, logy=logy, logz=logz)

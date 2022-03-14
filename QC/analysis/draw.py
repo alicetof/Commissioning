@@ -2,7 +2,7 @@
 
 
 from shutil import ExecError
-from utilities.plotting import draw_nice_canvas, remove_canvas
+from utilities.plotting import draw_nice_canvas, remove_canvas, save_all_canvases
 from common import warning_msg, get_default_parser, set_verbose_mode, verbose_msg
 from ROOT import TFile, TH1, TLatex
 from os import path
@@ -14,12 +14,14 @@ labels_drawn = []
 
 
 def draw_label(label, x=0.55, y=0.96):
-    label = label.strip()
+    while label.startswith(" ") or label.endswith(" "):
+        label = label.strip()
     l = TLatex(x, y, label)
     l.SetNDC()
     l.Draw()
     l.SetTextAlign(21)
     l.SetTextFont(42)
+    l.SetTextSize(0.035)
     labels_drawn.append(l)
     return l
 
@@ -48,6 +50,9 @@ def draw(filename,
     h.SetName(f_tag)
     drawopt = ""
     show_title = False
+    # if "TEfficiency" in h.ClassName():
+    #     # h = h.GetTotalHistogram()
+    #     h = h.GetPassedHistogram()
     h.SetBit(TH1.kNoTitle)
     if configuration is not None:
         def get_option(opt, forcetype=None):
@@ -95,6 +100,8 @@ def draw(filename,
     h.Draw(drawopt)
     if show_title:
         draw_label(h.GetTitle())
+    if "TEfficiency" in h.ClassName():
+        h.SetTitle("")
     can.Update()
     if save:
         saveas = path.join(out_path, f"{f_tag}.{extension}")
@@ -131,11 +138,11 @@ def main(tag="qc",
             continue
         r = draw(fn, configuration=config_parser)
         if wait:
-            input("press enter to continue")
+            input(f"'{r[1].GetName()}' {r[1].ClassName()} press enter to continue")
         if refresh:
             remove_canvas(r[0])
-            del r[0]
-            del r[1]
+            del r
+    save_all_canvases("/tmp/plots.pdf")
     return config_parser
 
 
@@ -152,6 +159,9 @@ if __name__ == "__main__":
                         type=str,
                         default="drawconfig.conf",
                         help='Name of the configuration file to use')
+    parser.add_argument("-b",
+                        action="store_true",
+                        help='Background mode')
     parser.add_argument('--wait', "-w",
                         action="store_true",
                         help='Option to stop at each canvas')
@@ -167,7 +177,6 @@ if __name__ == "__main__":
              refresh=args.refresh)
     if 1:
         l = []
-        print("Processed objects without config:")
         for i in object_drawn:
             if i in r.sections():
                 continue
@@ -176,3 +185,5 @@ if __name__ == "__main__":
             print("Processed objects without config:")
             for i in l:
                 print(i)
+    if not args.b:
+        input("Press enter to continue")

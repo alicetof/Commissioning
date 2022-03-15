@@ -86,7 +86,7 @@ def get_ccdb_obj(ccdb_path,
     if use_o2_api:
         api = get_ccdb_api(host)
         if timestamp == -1:
-            print("Getting current timestamp")
+            verbose_msg("Getting current timestamp")
             timestamp = o2.ccdb.getCurrentTimestamp()
         metadata = std.map('string,string')()
         api.retrieveBlob(ccdb_path,
@@ -99,7 +99,7 @@ def get_ccdb_obj(ccdb_path,
     else:
         cmd = f"o2-ccdb-downloadccdbfile --host {host} --path {ccdb_path} --dest {out_path} --timestamp {timestamp}"
         cmd += f" -o {out_name}"
-        print(cmd)
+        verbose_msg("Using o2 executable", cmd)
         subprocess.run(cmd.split())
     if not os.path.isfile(fullname):
         raise ValueError("File", fullname, "not found")
@@ -117,7 +117,7 @@ def get_ccdb_obj(ccdb_path,
                 continue
             if i[0] in m_d:
                 verbose_msg(i, convert_timestamp(int(i[1])),
-                            "delta=", i - timestamp)
+                            "delta =", int(i[1]) - timestamp)
             else:
                 verbose_msg(i)
         if timestamp < m_d["Valid-From"] or timestamp > m_d["Valid-Until"]:
@@ -155,6 +155,10 @@ def main(ccdb_path,
                 i = i.strip()
                 if i == "":
                     continue
+                if "#" in i:
+                    continue
+                if "%" in i:
+                    break
                 obj = get_ccdb_obj(ccdb_path=i,
                                    out_path=out_path,
                                    timestamp=timestamp,
@@ -192,7 +196,7 @@ if __name__ == "__main__":
     parser.add_argument('--ccdb_host', "-H",
                         default="qcdb.cern.ch:8083",
                         type=str,
-                        help='Host to use for the CCDB fetch e.g. qcdb.cern.ch:8083')
+                        help='Host to use for the CCDB fetch e.g. qcdb.cern.ch:8083 or http://ccdb-test.cern.ch:8080')
     parser.add_argument('--tag', '-T', action='store_true')
     parser.add_argument('--show', '-s', action='store_true')
 

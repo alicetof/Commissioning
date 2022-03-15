@@ -54,6 +54,7 @@ def draw(filename,
     #     # h = h.GetTotalHistogram()
     #     h = h.GetPassedHistogram()
     h.SetBit(TH1.kNoTitle)
+    postprocess = ""
     if configuration is not None:
         def get_option(opt, forcetype=None):
             src = "DEFAULT"
@@ -96,8 +97,14 @@ def draw(filename,
         set_if_not_empty("ytitle", "GetYaxis().SetTitle")
         set_if_not_empty("xrange", "GetXaxis().SetRangeUser")
         set_if_not_empty("yrange", "GetYaxis().SetRangeUser")
-
+        postprocess = get_option("postprocess")
     h.Draw(drawopt)
+    if postprocess != "":
+        postprocess = postprocess.replace(".py", "")
+        p = f"from postprocessing import {postprocess}"
+        exec(p)
+        p = f"{postprocess}.main(h)"
+        exec(p)
     if show_title:
         draw_label(h.GetTitle())
     if "TEfficiency" in h.ClassName():
@@ -138,7 +145,8 @@ def main(tag="qc",
             continue
         r = draw(fn, configuration=config_parser)
         if wait:
-            input(f"'{r[1].GetName()}' {r[1].ClassName()} press enter to continue")
+            input(
+                f"'{r[1].GetName()}' {r[1].ClassName()} press enter to continue")
         if refresh:
             remove_canvas(r[0])
             del r

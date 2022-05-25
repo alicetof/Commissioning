@@ -31,5 +31,5 @@ mv Run$RUN/qc/TOF/MO/TOFTrendingHits/mean_of_hits/snapshot.root  Run$RUN/rootfil
 
 rm -rf Run$RUN/qc
 
-root drawqcplots.C\(\"$RUN\"\)
+root -l -b -q drawqcplots.C\(\"$RUN\"\)
 

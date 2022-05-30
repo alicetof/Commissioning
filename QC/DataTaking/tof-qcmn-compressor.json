@@ -36,7 +36,10 @@
           "name": "raw-local"
         },
         "taskParameters": {
-          "nothing": "rien"
+          "TimeWindowMin": "4096",
+          "TimeWindowMax": "1212416",
+          "NoiseThreshold": "1000",
+          "DebugCrateMultiplicity": "True"
         },
         "location": "local",
         "localMachines": [

@@ -63,7 +63,7 @@
         },
         "taskParameters": {
           "PerChannel": "True",
-          "RangeMaxMultiplicity": "5000"
+          "RangeMaxMultiplicity": "2000"
         },
         "location": "local",
         "localMachines": [
@@ -214,7 +214,7 @@
         ]
       },
       "CheckTOFRawHitMap": {
-        "active": "false",
+        "active": "true",
         "className": "o2::quality_control_modules::tof::CheckHitMap",
         "moduleName": "QcTOF",
         "policy": "OnAny",

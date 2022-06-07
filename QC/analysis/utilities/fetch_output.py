@@ -2,7 +2,7 @@
 
 import subprocess
 from ROOT import TFile, gPad, TPaveText, o2, std
-from common import verbose_msg, set_verbose_mode, get_default_parser, msg, get_ccdb_api, warning_msg, convert_timestamp
+from common import verbose_msg, set_verbose_mode, get_default_parser, msg, get_ccdb_api, warning_msg, convert_timestamp, fatal_msg
 import os
 
 
@@ -15,6 +15,7 @@ def get_ccdb_obj(ccdb_path,
                  overwrite_preexisting=True,
                  use_o2_api=True,
                  check_metadata=True,
+                 musthave_in_metadata=None,
                  interesting_metadata=["ObjectType",
                                        "PassName",
                                        "PeriodName",
@@ -91,6 +92,14 @@ def get_ccdb_obj(ccdb_path,
         for i in meta:
             if i[0] in m_d:
                 m_d[i[0]] = int(i[1])
+            if musthave_in_metadata is not None:
+                for metatohave in musthave_in_metadata:
+                    if metatohave != i[0]:
+                        continue
+                    mvalue = musthave_in_metadata[metatohave]
+                    if mvalue != i[1]:
+                        fatal_msg(musthave_in_metadata, "metadata",
+                                  i[1], "not matching required metadata", mvalue, "!")
             if interesting_metadata[0] != "" and i[0] not in interesting_metadata:
                 continue
             if i[0] in m_d:
@@ -122,6 +131,7 @@ def main(ccdb_path,
          timestamp=-1,
          out_path="/tmp/",
          host="qcdb.cern.ch:8083",
+         musthave_in_metadata=None,
          show=False,
          tag=None):
     timestamp = convert_timestamp(timestamp, make_timestamp=True)
@@ -142,6 +152,7 @@ def main(ccdb_path,
                                    timestamp=timestamp,
                                    tag=tag,
                                    show=show,
+                                   musthave_in_metadata=musthave_in_metadata,
                                    host=host)
                 downloaded.append(obj)
     else:
@@ -150,6 +161,7 @@ def main(ccdb_path,
                            timestamp=timestamp,
                            tag=tag,
                            show=show,
+                           musthave_in_metadata=musthave_in_metadata,
                            host=host)
         downloaded.append(obj)
 
@@ -172,6 +184,7 @@ def fetchfromfile(filename, ccdb_path, args):
                  timestamp=timestamp,
                  show=args.show,
                  tag=args.tag,
+                 musthave_in_metadata={"RunNumber": run_number},
                  host=ccdb_host)
 
 

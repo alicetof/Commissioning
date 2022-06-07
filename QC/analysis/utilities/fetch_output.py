@@ -154,6 +154,27 @@ def main(ccdb_path,
         downloaded.append(obj)
 
 
+def fetchfromfile(filename, ccdb_path, args):
+    with open(filename) as f:
+        for i in f:
+            i = i.strip()
+            while "  " in i:
+                i = i.replace("  ", " ")
+            i = i.replace(":", "")
+            i = i.split()
+            # print(i)
+            run_number = i[0]
+            timestamp = i[1]
+            out_path = f"{args.out_path}/Run{run_number}"
+
+            main(ccdb_path=ccdb_path,
+                 out_path=out_path,
+                 timestamp=timestamp,
+                 show=args.show,
+                 tag=args.tag,
+                 host=ccdb_host)
+
+
 if __name__ == "__main__":
     parser = get_default_parser("Fetch data from CCDB. "
                                 "Basic example: `./fetch_output.py qc/TOF/MO/TaskRaw/hDiagnostic`")
@@ -178,7 +199,12 @@ if __name__ == "__main__":
                         help='Host to use for the CCDB fetch e.g. qcdb.cern.ch:8083 or http://ccdb-test.cern.ch:8080')
     parser.add_argument('--tag', '-T', action='store_true',
                         help='Flag to tag the output files with the timestamp')
-    parser.add_argument('--show', '-s', action='store_true',  help='Flag to draw the output.')
+    parser.add_argument('--show', '-s', action='store_true',
+                        help='Flag to draw the output.')
+    parser.add_argument('--useinputfile', "-I",
+                        default=None,
+                        type=str,
+                        help='Input file name')
 
     args = parser.parse_args()
     set_verbose_mode(args)
@@ -193,10 +219,13 @@ if __name__ == "__main__":
         ccdb_path = ccdb_path[1]
         msg("Overriding host to", ccdb_host)
 
-    for i in args.timestamp:
-        main(ccdb_path=ccdb_path,
-             out_path=args.out_path,
-             timestamp=i,
-             show=args.show,
-             tag=args.tag,
-             host=ccdb_host)
+    if args.useinputfile is not None:
+        fetchfromfile(args.useinputfile, ccdb_path, args)
+    else:
+        for i in args.timestamp:
+            main(ccdb_path=ccdb_path,
+                 out_path=args.out_path,
+                 timestamp=i,
+                 show=args.show,
+                 tag=args.tag,
+                 host=ccdb_host)

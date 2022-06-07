@@ -98,8 +98,12 @@ def get_ccdb_obj(ccdb_path,
                         continue
                     mvalue = musthave_in_metadata[metatohave]
                     if mvalue != i[1]:
-                        fatal_msg(musthave_in_metadata, "metadata",
-                                  i[1], "not matching required metadata", mvalue, "!")
+                        for m in meta:
+                            print(m)
+                        warning_msg(musthave_in_metadata, "metadata",
+                                    i[1], "not matching required metadata", mvalue, "!")
+                        os.remove(os.path.join(fullname))
+                        return
             if interesting_metadata[0] != "" and i[0] not in interesting_metadata:
                 continue
             if i[0] in m_d:
@@ -203,7 +207,7 @@ if __name__ == "__main__":
                         nargs="+",
                         help='Timestamp of the object to fetch, by default -1 (latest). Can accept more then one timestamp.')
     parser.add_argument('--out_path', "-o",
-                        default="/tmp/",
+                        default="/tmp/QCMOs/",
                         type=str,
                         help='[/tmp/] Output path on your local machine')
     parser.add_argument('--ccdb_host', "-H",

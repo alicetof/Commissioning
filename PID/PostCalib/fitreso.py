@@ -6,61 +6,117 @@ Script to plot the NSigma, extract resolution and parameters
 
 
 from debugtrack import DebugTrack
-from ROOT import o2, TFile, TF1, gROOT, gInterpreter, TPaveText
-from plotting import draw_nice_canvas, update_all_canvases, draw_nice_legend
-from common import get_default_parser, set_verbose_mode
+from ROOT import o2, TFile, TF1, TPaveText, TH1
+from plotting import draw_nice_canvas, update_all_canvases, draw_nice_legend, draw_pave
+from common import get_default_parser, set_verbose_mode, warning_msg
 
 
-def main(fname, paramn="/tmp/tofreso.root", hn="Pi", rebinx=-2):
+def main(fname,
+         paramn="/tmp/tofreso.root",
+         particle="Pi",
+         rebinx=-2,
+         mc=True):
     f = TFile(fname, "READ")
     if not f.IsOpen():
         print("Cannot open", fname)
-    f.ls()
-    f.Get("tof-pid-qa/nsigma").ls()
-    # d.ls()
-    hdelta = f.Get(f"tof-pid-qa/expected_diff/{hn}")
-    hdelta.SetDirectory(0)
-    hdelta.SetName("hdelta")
-    hnsigma = f.Get(f"tof-pid-qa/nsigma/{hn}")
-    hnsigma.SetDirectory(0)
-    hnsigma.SetName("hnsigma")
+
+    dnbase = "tof-pid-qa/event"
+    if mc:
+        dnbase = f"pidTOF-qa-mc-{particle}"
+    if not f.Get(dnbase):
+        f.ls()
+        raise ValueError("Cannot find directory", dnbase)
+    print("Using base directory", dnbase)
+    f.Get(dnbase).ls()
+    histos = {}
+
+    def get(hn, t, draw=True):
+        histos[t] = f.Get(hn)
+        if not histos[t]:
+            warning_msg("Did not find", t)
+            return
+        histos[t].SetDirectory(0)
+        histos[t].SetName(t)
+        histos[t].SetBit(TH1.kNoStats)
+        if "TH3" in histos[t].ClassName():
+            if draw:
+                draw_nice_canvas(f"3d{t}", logz=False)
+                histos[t].DrawCopy("COLZ")
+            histos[t] = histos[t].Project3D("yx")
+
+        if not draw:
+            return
+        if rebinx > 0:
+            histos[t].RebinX(rebinx)
+        if 1:
+            draw_nice_canvas(f"2d{t}", logz=True)
+            histos[t].DrawCopy("COLZ")
+
+    get(f"{dnbase}/expected_diff/{particle}", "delta")
+    get(f"{dnbase}/nsigma/{particle}", "nsigma")
+    if mc:
+        for i in ["El", "Mu", "Pi", "Ka", "Pr", "De", "Tr", "He", "Al"]:
+            get(f"{dnbase}/nsigmaMC/{i}", f"nsigmaMC{i}", draw=False)
     f.Close()
 
-    if "TH3" in hdelta.ClassName():
-        if 1:
-            draw_nice_canvas("3d", logz=False)
-            hdelta.DrawClone("COLZ")
-            update_all_canvases()
+    purity = None
+    efficiency = None
+    if mc:
+        def docut(hn, y=[-3, 3]):
+            if not histos[hn]:
+                warning_msg("Can't find", hn)
+                return
+            bins = [histos[hn].GetYaxis().FindBin(y[0]),
+                    histos[hn].GetYaxis().FindBin(y[1])]
+            hp = histos[hn].ProjectionX(f"{hn}-cut-[{y[0]}, {y[1]}]{bins[0]}-{bins[1]}",
+                                        *bins)
+            print(hp.GetName())
+            hp.SetDirectory(0)
+            return hp
+        draw_nice_canvas(f"Purity{particle}")
+        purity = docut(f"nsigma")
+        purity.SetName(f"purity{particle}")
+        purity.SetTitle("Purity")
+        purity.Divide(docut(f"nsigmaMC{particle}"))
+        purity.Draw()
 
-        hdelta = hdelta.Project3D("yx")
-
-        hnsigma = hnsigma.Project3D("yx")
-    if rebinx > 0:
-        hdelta.RebinX(rebinx)
-        hnsigma.RebinX(rebinx)
-
-    draw_nice_canvas("nsigma", logz=True)
-    hnsigma.Draw("COLZ")
+        draw_nice_canvas(f"Efficiency{particle}")
+        efficiency = docut(f"nsigmaMC{particle}", [-1000, 1000])
+        efficiency.SetName(f"efficiency{particle}")
+        efficiency.SetTitle("Efficiency")
+        efficiency.Divide(docut(f"nsigmaMC{particle}"))
+        efficiency.Draw()
 
     fgaus = TF1("gaus", "gaus", -200, 200)
 
-    draw_nice_canvas("nsigmaslice")
-    bins = [hnsigma.GetXaxis().FindBin(0.9), hnsigma.GetXaxis().FindBin(1.1)]
-    slicensigma1gev = hnsigma.ProjectionY(f"{bins[0]}-{bins[1]}", *bins)
-    slicensigma1gev.SetDirectory(0)
-    slicensigma1gev.Fit(fgaus)
-    slicensigma1gev.Draw()
-    pavensigma = TPaveText(.68, .63, .91, .72, "brNDC")
-    pavensigma.AddText("#mu = {:.3f}".format(fgaus.GetParameter(1)))
-    pavensigma.AddText("#sigma = {:.3f}".format(fgaus.GetParameter(2)))
-    pavensigma.Draw()
+    def drawslice(hn, x=[0.9, 1.1], fit=True):
+        if not histos[hn]:
+            return
+        draw_nice_canvas(f"hp{hn}")
+        bins = [histos[hn].GetXaxis().FindBin(x[0]),
+                histos[hn].GetXaxis().FindBin(x[1])]
+        hp = histos[hn].ProjectionY(f"{hn}-{bins[0]}-{bins[1]}",
+                                    *bins)
+        hp.SetDirectory(0)
+        if fit:
+            hp.Fit(fgaus)
+        hp.Draw()
+        if fit:
+            draw_pave(["#mu = {:.3f}".format(fgaus.GetParameter(1)),
+                       "#sigma = {:.3f}".format(fgaus.GetParameter(2))])
+    drawslice("delta")
+    drawslice("nsigma")
 
-    hparmu = hdelta.ProjectionX("mu")
+    if not histos["delta"]:
+        update_all_canvases()
+        return
+
+    hparmu = histos["delta"].ProjectionX("mu")
     hparmu.Clear()
     hparmu.SetLineColor(2)
     hparmu.SetDirectory(0)
 
-    hparsigma = hdelta.ProjectionX("sigma")
+    hparsigma = histos["delta"].ProjectionX("sigma")
     hparsigma.Clear()
     hparsigma.SetLineColor(3)
     hparsigma.SetDirectory(0)
@@ -84,16 +140,17 @@ def main(fname, paramn="/tmp/tofreso.root", hn="Pi", rebinx=-2):
         tofSignal = 1.
         return exptimes.GetExpectedSigma(tofpar, debugtrack, tofSignal, collisionTimeRes)
 
-    for i in range(1, hdelta.GetNbinsX()+1):
-        s = hdelta.ProjectionY(f"{i}", i, i)
+    for i in range(1, histos["delta"].GetNbinsX()+1):
+        s = histos["delta"].ProjectionY(f"{i}", i, i)
         s.SetDirectory(0)
         s.Fit(fgaus, "QNR")
         hparmu.SetBinContent(i, fgaus.GetParameter(1))
         hparsigma.SetBinContent(i, fgaus.GetParameter(2))
 
-    draw_nice_canvas("slice")
-    bins = [hdelta.GetXaxis().FindBin(0.9), hdelta.GetXaxis().FindBin(1.1)]
-    slice1gev = hdelta.ProjectionY(f"{bins[0]}-{bins[1]}", *bins)
+    draw_nice_canvas("hp")
+    bins = [histos["delta"].GetXaxis().FindBin(
+        0.9), histos["delta"].GetXaxis().FindBin(1.1)]
+    slice1gev = histos["delta"].ProjectionY(f"{bins[0]}-{bins[1]}", *bins)
     slice1gev.SetDirectory(0)
     slice1gev.Fit(fgaus)
     slice1gev.Draw()
@@ -103,7 +160,7 @@ def main(fname, paramn="/tmp/tofreso.root", hn="Pi", rebinx=-2):
     pave.Draw()
 
     draw_nice_canvas("fit")
-    hdelta.Draw("COLZ")
+    histos["delta"].Draw("COLZ")
     hparmu.Draw("same")
     hparsigma.Draw("same")
     if paramn is not None:
@@ -137,8 +194,6 @@ def main(fname, paramn="/tmp/tofreso.root", hn="Pi", rebinx=-2):
 
     update_all_canvases()
 
-    input("press enter to continue")
-
 
 if __name__ == "__main__":
     parser = get_default_parser(__doc__ +
@@ -147,9 +202,10 @@ if __name__ == "__main__":
                         type=str,
                         nargs="+",
                         help='Input files')
-
+    parser.add_argument('--mc', action='store_true', help='MC mode')
     args = parser.parse_args()
     set_verbose_mode(args)
 
     for i in args.files:
-        main(i)
+        main(i, mc=args.mc)
+    input("press enter to continue")

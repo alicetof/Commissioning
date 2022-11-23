@@ -28,6 +28,8 @@ def get_ccdb_obj(ccdb_path,
     If `out_path` is a file name and not a path, then the output file will be renamed to the requested name.
     If 'tag' is True then the filename will be renamed after the timestamp.
     """
+    if musthave_in_metadata is not None and download_mode == "wget":
+        timestamp = 1700000000000
     if type(timestamp) is not int:
         raise ValueError("timestamp must be an integer", type(timestamp))
 
@@ -62,6 +64,10 @@ def get_ccdb_obj(ccdb_path,
         if check_rootfile(fullname):
             msg("File", fullname, "already existing, not overwriting")
             return
+    full_out_path = os.path.dirname(fullname)
+    if download_mode == "wget" and not os.path.isdir(full_out_path):
+        print("Making dir", full_out_path)
+        os.makedirs(full_out_path, exist_ok=True)
     if download_mode == "api":
         api = get_ccdb_api(host)
         if timestamp == -1:
@@ -76,7 +82,7 @@ def get_ccdb_obj(ccdb_path,
             os.rename(os.path.join(out_path, ccdb_path,
                                    "snapshot.root"), fullname)
     elif download_mode == "wget":
-        cmd = f"wget -O {out_name} {host}/{ccdb_path}/{timestamp}"
+        cmd = f"wget -O {fullname} {host}/{ccdb_path}/{timestamp}"
         if "PeriodName" in musthave_in_metadata:
             cmd += "/PeriodName={}".format(musthave_in_metadata["PeriodName"])
         if "RunNumber" in musthave_in_metadata:
@@ -94,7 +100,7 @@ def get_ccdb_obj(ccdb_path,
         raise ValueError("Download target file", fullname, "not found")
     if not check_rootfile(fullname):
         raise ValueError("Download target file", fullname, "is not Ok")
-    if check_metadata:
+    if check_metadata and (download_mode != "wget"):
         f = TFile(os.path.join(fullname), "READ")
         meta = f.Get("ccdb_meta")
         verbose_msg("Metadata")
@@ -263,6 +269,15 @@ if __name__ == "__main__":
                         help='Flag to tag the output files with the timestamp')
     parser.add_argument('--show', '-s', action='store_true',
                         help='Flag to draw the output.')
+    parser.add_argument('--runnumber', '-R',
+                        default=None,
+                        help='Run number to ask in the metadata. Can be used to download if in `wget` mode')
+    parser.add_argument('--passname', '--pass', '-P',
+                        default=None,
+                        help='Pass to ask in the metadata. Can be used to download if in `wget` mode')
+    parser.add_argument('--periodname', "--period", '-p',
+                        default=None,
+                        help='Period to ask in the metadata. Can be used to download if in `wget` mode')
     parser.add_argument('--useinputfile', "-I",
                         default=None,
                         type=str,
@@ -281,6 +296,17 @@ if __name__ == "__main__":
         ccdb_path = ccdb_path[1]
         msg("Overriding host to", ccdb_host)
 
+    meta_dict = None
+
+    def do_meta_dict(var, name):
+        global meta_dict
+        if var is not None:
+            if meta_dict is None:
+                meta_dict = {}
+            meta_dict[name] = var
+    do_meta_dict(args.runnumber, "RunNumber")
+    do_meta_dict(args.passname, "PeriodName")
+    do_meta_dict(args.periodname, "PeriodName")
     if args.useinputfile is not None:
         fetchfromfile(args.useinputfile, ccdb_path, args)
     else:
@@ -290,4 +316,6 @@ if __name__ == "__main__":
                  timestamp=i,
                  show=args.show,
                  tag=args.tag,
+                 musthave_in_metadata=meta_dict,
+                 download_mode=args.downloadmode,
                  host=ccdb_host)

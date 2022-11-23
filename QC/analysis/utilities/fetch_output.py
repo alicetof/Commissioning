@@ -13,7 +13,7 @@ def get_ccdb_obj(ccdb_path,
                  show,
                  tag=False,
                  overwrite_preexisting=True,
-                 use_o2_api=True,
+                 download_mode="api",
                  check_metadata=True,
                  musthave_in_metadata=None,
                  interesting_metadata=["ObjectType",
@@ -62,7 +62,7 @@ def get_ccdb_obj(ccdb_path,
         if check_rootfile(fullname):
             msg("File", fullname, "already existing, not overwriting")
             return
-    if use_o2_api:
+    if download_mode == "api":
         api = get_ccdb_api(host)
         if timestamp == -1:
             verbose_msg("Getting current timestamp")
@@ -75,6 +75,16 @@ def get_ccdb_obj(ccdb_path,
         if tag:
             os.rename(os.path.join(out_path, ccdb_path,
                                    "snapshot.root"), fullname)
+    elif download_mode == "wget":
+        cmd = f"wget -O {out_name} {host}/{ccdb_path}/{timestamp}"
+        if "PeriodName" in musthave_in_metadata:
+            cmd += "/PeriodName={}".format(musthave_in_metadata["PeriodName"])
+        if "RunNumber" in musthave_in_metadata:
+            cmd += "/RunNumber={}".format(musthave_in_metadata["RunNumber"])
+        if "PassName" in musthave_in_metadata:
+            cmd += "/PassName={}".format(musthave_in_metadata["PassName"])
+        verbose_msg("Using o2 executable", cmd)
+        subprocess.run(cmd.split())
     else:
         cmd = f"o2-ccdb-downloadccdbfile --host {host} --path {ccdb_path} --dest {out_path} --timestamp {timestamp}"
         cmd += f" -o {out_name}"
@@ -136,6 +146,7 @@ def main(ccdb_path,
          timestamp=-1,
          out_path="/tmp/",
          host="qcdb.cern.ch:8083",
+         download_mode="api",
          musthave_in_metadata=None,
          retry_policy=0,
          retry_delta=30,
@@ -162,6 +173,7 @@ def main(ccdb_path,
                                        timestamp=timestamp + j * retry_delta,
                                        tag=tag,
                                        show=show,
+                                       download_mode=download_mode,
                                        musthave_in_metadata=musthave_in_metadata,
                                        host=host)
                     if obj is not None:
@@ -178,6 +190,7 @@ def main(ccdb_path,
                                timestamp=timestamp + j * retry_delta,
                                tag=tag,
                                show=show,
+                               download_mode=download_mode,
                                musthave_in_metadata=musthave_in_metadata,
                                host=host)
             if obj is not None:
@@ -237,6 +250,11 @@ if __name__ == "__main__":
                         default="/tmp/QCMOs/",
                         type=str,
                         help='[/tmp/] Output path on your local machine')
+    parser.add_argument('--downloadmode', "-d",
+                        default="api",
+                        type=str,
+                        choices=["api", "wget", "other"],
+                        help='Mode to download the object. Default is api')
     parser.add_argument('--ccdb_host', "-H",
                         default="http://ali-qcdb-gpn.cern.ch:8083",
                         type=str,

@@ -43,4 +43,5 @@ struct DebugTrack { // Track that mimics the O2 data structure
   }
 };
 """)
-from ROOT import DebugTrack
+if 1:
+    from ROOT import DebugTrack

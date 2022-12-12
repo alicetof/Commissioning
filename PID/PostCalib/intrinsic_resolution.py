@@ -5,13 +5,14 @@ Script to compute the intrinsic TOF resolution from TOF skimmed data produced wi
 """
 
 import ROOT
-from ROOT import TFile, TChain, TTree, TH1, o2, gInterpreter, TMath, EnableImplicitMT, gROOT, gPad, TColor, gStyle, TF1
+from ROOT import TFile, TChain, TTree, TH1, o2, gInterpreter, TMath, EnableImplicitMT, gROOT, gPad, TColor, gStyle, TF1, TObjArray, gROOT
 from ROOT.RDF import TH2DModel, TH1DModel
 from plotting import draw_nice_canvas, update_all_canvases, set_nice_frame, draw_label
 from common import get_default_parser, set_verbose_mode, verbose_msg, is_verbose_mode
 from debugtrack import *
 import numpy as np
 import os
+from numpy import sqrt
 import tqdm
 import sys
 import queue
@@ -121,7 +122,6 @@ def pre_process_frame(filename,
                       outpath="/tmp/toftrees2",
                       overwrite=False,
                       make_histo=False):
-    global data_frames_processed
     dataframe = ROOT.RDataFrame(treename, filename)
     treename = treename.split("/")[0]
     dataframe = dataframe.Define("ExpTimePi", "ComputeExpectedTimePi(fTOFExpMom, fLength)")
@@ -182,12 +182,21 @@ def pre_process_frame(filename,
 
 
 def post_process_frame(dataframe):
+    gROOT.ProcessLine( "gErrorIgnoreLevel = 1001;")
     ptbins = [100, 0, 5]
     deltapibins = [1000, -1000, 1000]
     print("Post processing", dataframe.Count().GetValue(), "tracks")
-    h2 = makehisto(input_dataframe=dataframe, x="fP", y="DeltaInEvent", xr=ptbins, yr=deltapibins, xt="p (GeV/c)", yt="#DeltaRef (ps)")
-    proj_bin = [0.8, 1.6]
-    hp = h2.ProjectionY("hp", h2.GetXaxis().FindBin(proj_bin[0]), h2.GetXaxis().FindBin(proj_bin[1]))
+    h2 = makehisto(input_dataframe=dataframe, x="fP", y="DeltaInEvent", xr=ptbins, yr=deltapibins,
+                   xt="p (GeV/c)", yt="#Delta(#pi) - #Delta(#pi)_{ref} (ps)", draw=True)
+    fitres = TObjArray()
+    proj_bin = [0.5, 2.2]
+    b = [h2.GetXaxis().FindBin(proj_bin[0]), h2.GetXaxis().FindBin(proj_bin[1])]
+
+    h2.FitSlicesY (TF1("fgaus", "gaus", -300, 300), *b, 0, "QNR", fitres)
+    fitres[1].Draw("same")
+    fitres[2].Draw("same")
+
+    hp = h2.ProjectionY("hp", *b)
     hp.Rebin(4)
     hp.SetBit(TH1.kNoTitle)
     hp.SetBit(TH1.kNoStats)
@@ -198,9 +207,28 @@ def post_process_frame(dataframe):
     hp.Draw()
     hp.Fit(fgaus, "QN", "", -200, 200)
     fgaus.Draw("same")
-    draw_label(f"{h2.GetXaxis().GetTitle()} [{h2.GetXaxis().GetBinLowEdge(h2.GetXaxis().FindBin(proj_bin[0])):.2f}, {h2.GetXaxis().GetBinUpEdge(h2.GetXaxis().FindBin(proj_bin[1])):.2f}]",
+    draw_label(f"{h2.GetXaxis().GetTitle()} [{h2.GetXaxis().GetBinLowEdge(b[0]):.2f}, {h2.GetXaxis().GetBinUpEdge(b[1]):.2f}]",
                x=0.95, y=0.96, align=31)
     draw_label(f"#sigma = {fgaus.GetParameter(2):.2f} ps", x=0.91, y=0.9, align=31)
+    draw_label(f"#sigma/#sqrt{{2}} = {fgaus.GetParameter(2)/sqrt(2):.2f} ps", x=0.91, y=0.85, align=31)
+
+
+def get_trees_from_file(file_name="/tmp/toftrees/AnalysisResults_trees_V0S_0.root",
+                        tree_name="O2skimmedtof",
+                        print_branch_names=False):
+    verbose_msg("Getting trees from", file_name)
+    f = TFile(file_name, "READ")
+    subdirs = []
+    for i in f.GetListOfKeys():
+        if i.GetName().startswith("DF_"):
+            subdirs.append(f"{i.GetName()}/{tree_name}")
+    if print_branch_names and is_verbose_mode():
+        f.Get(subdirs[0]).Print()
+        for i in f.Get(subdirs[0]).GetListOfBranches():
+            print(i.GetName())
+    f.Close()
+    # print(subdirs)
+    return subdirs
 
 
 def main(filenames,
@@ -208,37 +236,19 @@ def main(filenames,
          do_postprocessing=False,
          process_in_parallel=True):
     if len(filenames) > 1 and process_in_parallel and do_preprocessing:
-        with open("listofinput.txt", "w") as f:
+        with open("/tmp/listofinput.txt", "w") as f:
             for i in filenames:
                 f.write(f"{sys.argv[0]} {i} --preprocess\n")
         print("Processing in parallel")
         # os.system(f"time parallel -j 4 python {sys.argv[0]} --preprocess --postprocess --filelist listofinput.txt --file {{}}")
-        print(f"time parallel --progress -j 4 -a listofinput.txt\n")
-        # time parallel --progress -j {bash_parallel_jobs} -a listofscripts.sh bash\n
+        print(f"time parallel --progress -j 4 -a /tmp/listofinput.txt\n")
         return
-
-    def get_trees(file_name="/tmp/toftrees/AnalysisResults_trees_V0S_0.root",
-                  tree_name="O2skimmedtof",
-                  print_branch_names=False):
-        verbose_msg("Getting trees from", file_name)
-        f = TFile(file_name, "READ")
-        subdirs = []
-        for i in f.GetListOfKeys():
-            if i.GetName().startswith("DF_"):
-                subdirs.append(f"{i.GetName()}/{tree_name}")
-        if print_branch_names and is_verbose_mode():
-            f.Get(subdirs[0]).Print()
-            for i in f.Get(subdirs[0]).GetListOfBranches():
-                print(i.GetName())
-        f.Close()
-        # print(subdirs)
-        return subdirs
 
     if do_preprocessing:
         # First build the list of TTrees
         trees = {}
         for i in filenames:
-            trees[i] = get_trees(file_name=i, print_branch_names=(i == filenames[0]))
+            trees[i] = get_trees_from_file(file_name=i, print_branch_names=(i == filenames[0]))
         # Linearize it
         list_of_trees = []
         for i in trees:
@@ -250,14 +260,14 @@ def main(filenames,
             except KeyboardInterrupt:
                 print("Keyboard interrupt")
                 break
+        for i in histograms:
+            draw_nice_canvas(i, logz=True)
+            histograms[i].Draw("COLZ")
 
     if do_postprocessing:
         EnableImplicitMT(5)
         post_process_frame(ROOT.RDataFrame("O2skimmedtof", filenames))
 
-    for i in histograms:
-        draw_nice_canvas(i, logz=True)
-        histograms[i].Draw("COLZ")
     update_all_canvases()
     if not gROOT.IsBatch() and len(histograms) > 0:
         input("Press enter to continue")

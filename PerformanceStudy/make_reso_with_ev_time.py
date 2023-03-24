@@ -49,6 +49,7 @@ def addDFToChain(input_file_name, chain):
         chain.Add(tname)
     f.Close()
 
+
 EnableImplicitMT(7)
 
 
@@ -213,6 +214,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         multaxis = [40, 0, 40]
         ptaxis = [10000, 0, 100]
         deltaaxis = [100, -2000, 2000]
+        tminustexpaxis = [1000, -2000, 2000]
 
         df = RDataFrame(chain)
         # df = df.Filter("fEta>0.3")
@@ -232,14 +234,18 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
                   "fEvTimeTOFMult", "fDoubleDelta", multaxis, deltaaxis,
                   tag="reference", title=f"#Delta#Deltat ref. {reference_momentum[0]:.1f} < #it{{p}} < {reference_momentum[1]:.1f} GeV/#it{{c}}")
         makehisto(df, "fEta", xr=[100, -1, 1])
-        makehisto(df, "fDoubleDelta", "fP", deltaaxis, ptaxis, title="#Delta#Deltat vs p")
-        makehisto(df, "fDoubleDelta", "fPt", deltaaxis, ptaxis, title="#Delta#Deltat vs pT")
+        makehisto(df, "fP", "fDoubleDelta", ptaxis, deltaaxis, title="#Delta#Deltat vs p")
+        makehisto(df, "fPt", "fDoubleDelta", ptaxis, deltaaxis, title="#Delta#Deltat vs pT")
         for i in ["El", "Mu", "Ka", "Pr"]:
             part = {"El": "e", "Mu": "#mu", "Ka": "K", "Pr": "p"}[i]
-            makehisto(df, "DeltaPi"+i, "fPt", deltaaxis, ptaxis, xt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
-            makehisto(df, "DeltaPi"+i, "fP", deltaaxis, ptaxis, xt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
-        df = df.Filter(f"fPt>{minPt}")
-        df = df.Filter(f"fPt<{maxPt}")
+            makehisto(df, "fP", "DeltaPi"+i, ptaxis, tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
+            makehisto(df, "fPt", "DeltaPi"+i, ptaxis, tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
+        if 0:
+            df = df.Filter(f"fPt>{minPt}")
+            df = df.Filter(f"fPt<{maxPt}")
+        else:
+            df = df.Filter(f"fP>{minPt}")
+            df = df.Filter(f"fP<{maxPt}")
 
         makehisto(df, "fEvTimeTOFMult", "fEvTimeT0AC", multaxis, evtimeaxis, title="T0AC ev. time")
         makehisto(df, "fEvTimeTOFMult", "fEvTimeTOF", multaxis, evtimeaxis, title="TOF ev. time")
@@ -270,10 +276,12 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         print("\t", i)
 
     for i in histogram_names:
-        if i in ["fPt_vs_DeltaPiEl", "fPt_vs_DeltaPiMu", "fPt_vs_DeltaPiKa", "fPt_vs_DeltaPiPr"]:
-            continue
-        if i in ["fP_vs_DeltaPiEl", "fP_vs_DeltaPiMu", "fP_vs_DeltaPiKa", "fP_vs_DeltaPiPr"]:
-            continue
+        if 1:
+            if i in ["DeltaPiEl_vs_fPt", "DeltaPiMu_vs_fPt", "DeltaPiKa_vs_fPt", "DeltaPiPr_vs_fPt"]:
+                continue
+        if 1:
+            if i in ["DeltaPiEl_vs_fP", "DeltaPiMu_vs_fP", "DeltaPiKa_vs_fP", "DeltaPiPr_vs_fP"]:
+                continue
         start = time.time()
         print("+ Drawing histogram", i)
         hd = drawhisto(i)
@@ -309,12 +317,13 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     pwidth = 0.1
     for j in ["fP", "fPt"]:
         r = reso_graphs[j]
-        r.GetYaxis().SetTitle("#sigma "+histograms[j+"_vs_fDoubleDelta"].GetXaxis().GetTitle())
+        hn = "fDoubleDelta_vs_"+j
+        r.GetYaxis().SetTitle("#sigma "+histograms[hn].GetXaxis().GetTitle())
         for i in range(int((stopP-startP)/pwidth)):
             xmin = startP + i*pwidth
             xmax = xmin + pwidth
-            reso_histo = histograms[j+"_vs_fDoubleDelta"]
-            reso_histo = reso_histo.ProjectionX(f"reso_histo_{j}_{xmin}_{xmax}", reso_histo.GetYaxis().FindBin(xmin+0.00001), reso_histo.GetYaxis().FindBin(xmax-0.0001))
+            reso_histo = histograms[hn]
+            reso_histo = reso_histo.ProjectionY(f"reso_histo_{j}_{xmin}_{xmax}", reso_histo.GetXaxis().FindBin(xmin+0.00001), reso_histo.GetXaxis().FindBin(xmax-0.0001))
             reso_gaus = TF1("reso_gaus_"+j, "gaus", -1000, 1000)
             reso_histo.Fit(reso_gaus, "QNRWW")
             r.SetPoint(r.GetN(), (xmin+xmax)/2, sqrt(reso_gaus.GetParameter(2)**2 - reference_gaus.GetParameter(2)**2/2))
@@ -331,12 +340,12 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     if 1:
         # Drawing Double delta vs Pt and P
         for k in ["fPt", "fP"]:
-            hd = drawhisto(k+"_vs_fDoubleDelta", opt="COL")
+            hd = drawhisto("fDoubleDelta_vs_"+k, opt="COL")
             colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3']
             leg = draw_nice_legend([0.74, 0.92], [0.74, 0.92])
             for i in ["El", "Mu", "Ka", "Pr"]:
                 col = TColor.GetColor(colors.pop())
-                particle_profile = histograms[k+"_vs_DeltaPi"+i].ProfileX()
+                particle_profile = histograms["DeltaPi"+i+"_vs_"+k].ProfileX()
                 particle_profile.SetName("profile_"+particle_profile.GetName())
                 if 1:
                     g = TGraph()
@@ -344,22 +353,23 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
                     hd.GetListOfFunctions().Add(g)
                     g.SetTitle(particle_profile.GetTitle())
                     for j in range(1, particle_profile.GetNbinsX()+1):
-                        if i == "El":
-                            if particle_profile.GetXaxis().GetBinCenter(j) < -1000:
-                                continue
-                            if particle_profile.GetXaxis().GetBinCenter(j) > -5:
-                                continue
-                        elif i == "Mu":
-                            if particle_profile.GetXaxis().GetBinCenter(j) < -500:
-                                continue
-                            if particle_profile.GetXaxis().GetBinCenter(j) > -5:
-                                continue
-                        elif i in ["Ka"]:
-                            if particle_profile.GetXaxis().GetBinCenter(j) < 40:
-                                continue
-                        elif i in ["Pr"]:
-                            if particle_profile.GetXaxis().GetBinCenter(j) < 130:
-                                continue
+                        if 0:
+                            if i == "El":
+                                if particle_profile.GetXaxis().GetBinCenter(j) < -1000:
+                                    continue
+                                if particle_profile.GetXaxis().GetBinCenter(j) > -5:
+                                    continue
+                            elif i == "Mu":
+                                if particle_profile.GetXaxis().GetBinCenter(j) < -500:
+                                    continue
+                                if particle_profile.GetXaxis().GetBinCenter(j) > -5:
+                                    continue
+                            elif i in ["Ka"]:
+                                if particle_profile.GetXaxis().GetBinCenter(j) < 40:
+                                    continue
+                            elif i in ["Pr"]:
+                                if particle_profile.GetXaxis().GetBinCenter(j) < 130:
+                                    continue
                         g.SetPoint(g.GetN(), particle_profile.GetBinCenter(j), particle_profile.GetBinContent(j))
                     g.SetLineColor(col)
                     g.SetMarkerColor(col)
@@ -403,23 +413,33 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             continue
         if "fPt_" in i or "fP_" in i:
             continue
+        if "_fPt" in i or "_fP" in i:
+            continue
         if "vs" in i:
             fitmultslices(i)
     fitmultslices("fDoubleDelta_vs_fEvTimeTOFMult")
 
     if 1:
         draw_nice_canvas("DeltaEvTime")
-        colors = ['#e41a1c', '#377eb8']
-        b = histograms["DeltaPiTOF_vs_fEvTimeTOFMult"].GetXaxis().FindBin(12)
-        p = histograms["DeltaPiTOF_vs_fEvTimeTOFMult"].ProjectionY("DeltaPiTOF_vs_fEvTimeTOFMult_proj", b).DrawCopy()
-        p.SetBit(TH1.kNoStats)
-        p.SetBit(TH1.kNoTitle)
-        p.SetLineColor(TColor.GetColor(colors.pop()))
+        colors = ['#e41a1c', '#377eb8', '#4daf4a']
+        projections = []
+        for i in ["DeltaPiTOF_vs_fEvTimeTOFMult", "DeltaPiTOF_vs_fEvTimeTOFMult", "fDoubleDelta_vs_fEvTimeTOFMult"]:
+            b = histograms[i].GetXaxis().FindBin(12)
+            p = histograms[i].ProjectionY(i+"_proj", b)
+            if i == "DeltaPiTOF_vs_fEvTimeTOFMult":
+                p.Draw()
+            else:
+                p.Draw("same")
+            p.Draw()
+            p.SetDirectory(0)
+            p.SetBit(TH1.kNoStats)
+            p.SetBit(TH1.kNoTitle)
+            p.SetLineColor(TColor.GetColor(colors.pop()))
+            projections.append(p)
         leg = draw_nice_legend([0.64, 0.92], [0.57, 0.92])
-        leg.AddEntry(p, f"{p.GetTitle()} {p.Integral()} #mu = {p.GetMean():.2f}")
-        p = histograms["DeltaPiT0AC_vs_fEvTimeTOFMult"].ProjectionY("DeltaPiT0AC_vs_fEvTimeTOFMult_proj", b).DrawCopy("same")
-        p.SetLineColor(TColor.GetColor(colors.pop()))
-        leg.AddEntry(p, f"{p.GetTitle()} {p.Integral()} #mu = {p.GetMean():.2f}")
+        for i in projections:
+            print(i)
+            leg.AddEntry(i, "", f"{p.GetTitle()} {p.Integral()} #mu = {p.GetMean():.2f}")
 
     multiplicity_range = [0, 45]
     max_multiplicity = 25
@@ -473,7 +493,8 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             leg.AddEntry(s)
 
         drawn_slices["fDoubleDelta_vs_fEvTimeTOFMult_reference"].Scale(1./sqrt(2))
-        draw_label(f"{minPt:.2f} < #it{{p}}_{{T}} < {maxPt:.2f} GeV/#it{{c}}", 0.2, 0.97, align=11)
+        # draw_label(f"{minPt:.2f} < #it{{p}}_{{T}} < {maxPt:.2f} GeV/#it{{c}}", 0.2, 0.97, align=11)
+        draw_label(f"{minPt:.2f} < #it{{p}} < {maxPt:.2f} GeV/#it{{c}}", 0.2, 0.97, align=11)
 
         if 1:
             # fasympt = TF1("fasympt", "[0]/x^[2]+[1]", 0, 40)

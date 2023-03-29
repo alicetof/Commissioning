@@ -50,9 +50,6 @@ def addDFToChain(input_file_name, chain):
     f.Close()
 
 
-EnableImplicitMT(7)
-
-
 histogram_names = []
 histograms = {}
 histomodels = {}
@@ -61,7 +58,7 @@ histomodels = {}
 def makehisto(input_dataframe,
               x,
               y=None,
-              #   z=None,
+              z=None,
               xr=None,
               yr=None,
               xt=None,
@@ -178,7 +175,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
          reference_momentum=[0.6, 0.7],
          replay_mode=False,
          max_files=-1,
-         out_file_name="/tmp/TOFRESO.root"):
+         out_file_name="/tmp/TOFRESOHighPt.root"):
     print("Using file:", input_file_name)
 
     out_file_name = out_file_name.replace(".root", f"_{minPt:.2f}_{maxPt:.2f}.root")
@@ -211,6 +208,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
                 for line in f:
                     addDFToChain(line, chain)
         evtimeaxis = [1000, -2000, 2000]
+        evtimediffaxis = [100, -1000, 1000]
         multaxis = [40, 0, 40]
         ptaxis = [10000, 0, 100]
         deltaaxis = [100, -2000, 2000]
@@ -225,21 +223,22 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         df = df.Filter("fTOFChi2>=0")
         df = df.Define("DeltaPiTOF", "fDeltaTPi-fEvTimeTOF")
         df = df.Define("DeltaPiT0AC", "fDeltaTPi-fEvTimeT0AC")
+        df = df.Define("EvTimeReso", "fEvTimeT0AC - fEvTimeTOF")
         for i in ["El", "Mu", "Ka", "Pr"]:
             df = df.Define(f"DeltaPi{i}", f"fDeltaTPi-fDeltaT{i}")
         if reference_momentum[0] >= reference_momentum[1]:
             raise ValueError("Reference momentum range is not valid", reference_momentum)
 
         makehisto(df.Filter(f"fP > {reference_momentum[0]}").Filter(f"fP < {reference_momentum[1]}"),
-                  "fEvTimeTOFMult", "fDoubleDelta", multaxis, deltaaxis,
+                  x="fEvTimeTOFMult", y="fDoubleDelta", xr=multaxis, yr=deltaaxis,
                   tag="reference", title=f"#Delta#Deltat ref. {reference_momentum[0]:.1f} < #it{{p}} < {reference_momentum[1]:.1f} GeV/#it{{c}}")
-        makehisto(df, "fEta", xr=[100, -1, 1])
-        makehisto(df, "fP", "fDoubleDelta", ptaxis, deltaaxis, title="#Delta#Deltat vs p")
-        makehisto(df, "fPt", "fDoubleDelta", ptaxis, deltaaxis, title="#Delta#Deltat vs pT")
+        makehisto(df, x="fEta", xr=[100, -1, 1])
+        makehisto(df, x="fP", y="fDoubleDelta", xr=ptaxis, yr=deltaaxis, title="#Delta#Deltat vs p")
+        makehisto(df, x="fPt", y="fDoubleDelta", xr=ptaxis, yr=deltaaxis, title="#Delta#Deltat vs pT")
         for i in ["El", "Mu", "Ka", "Pr"]:
             part = {"El": "e", "Mu": "#mu", "Ka": "K", "Pr": "p"}[i]
-            makehisto(df, "fP", "DeltaPi"+i, ptaxis, tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
-            makehisto(df, "fPt", "DeltaPi"+i, ptaxis, tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
+            makehisto(df, x="fP", y="DeltaPi"+i, xr=ptaxis, yr=tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
+            makehisto(df, x="fPt", y="DeltaPi"+i, xr=ptaxis, yr=tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
         if 0:
             df = df.Filter(f"fPt>{minPt}")
             df = df.Filter(f"fPt<{maxPt}")
@@ -247,15 +246,18 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             df = df.Filter(f"fP>{minPt}")
             df = df.Filter(f"fP<{maxPt}")
 
-        makehisto(df, "fEvTimeTOFMult", "fEvTimeT0AC", multaxis, evtimeaxis, title="T0AC ev. time")
-        makehisto(df, "fEvTimeTOFMult", "fEvTimeTOF", multaxis, evtimeaxis, title="TOF ev. time")
-        makehisto(df, "fEvTimeTOFMult", "fDoubleDelta", multaxis, deltaaxis, title="#Delta#Deltat")
-        makehisto(df, "fEvTimeTOFMult", "DeltaPiTOF", multaxis, deltaaxis, yt="t-t_{exp}(#pi)-t_{0}^{TOF} (ps)", title="t-t_{exp}(#pi)-t_{0}^{TOF}")
-        makehisto(df, "fEvTimeTOFMult", "DeltaPiT0AC", multaxis, deltaaxis, yt="t-t_{exp}(#pi)-t_{0}^{T0AC} (ps)", title="t-t_{exp}(#pi)-t_{0}^{T0AC}")
-        makehisto(df, "fEvTimeT0AC", xr=evtimeaxis)
-        makehisto(df, "fEvTimeTOF", xr=evtimeaxis)
-        makehisto(df, "fEvTimeT0AC", "fEvTimeTOF", evtimeaxis, evtimeaxis, extracut="fEvTimeTOFMult>0", title="T0AC ev. time vs TOF ev. time")
-        makehisto(df, "fEvTimeT0AC", "fEvTimeTOF", evtimeaxis, evtimeaxis, extracut="fEvTimeTOFMult>15", title="T0AC ev. time vs TOF ev. time (TOF ev. mult > 15)")
+        # Event times
+        makehisto(df, x="fEvTimeTOFMult", y="fEvTimeT0AC", xr=multaxis, yr=evtimeaxis, title="T0AC ev. time")
+        makehisto(df, x="fEvTimeTOFMult", y="fEvTimeTOF", xr=multaxis, yr=evtimeaxis, title="TOF ev. time")
+        makehisto(df, x="fEvTimeTOFMult", y="fDoubleDelta", xr=multaxis, yr=deltaaxis, title="#Delta#Deltat")
+        makehisto(df, x="fEvTimeTOFMult", y="DeltaPiTOF", xr=multaxis, yr=deltaaxis, yt="t-t_{exp}(#pi)-t_{0}^{TOF} (ps)", title="t-t_{exp}(#pi)-t_{0}^{TOF}")
+        makehisto(df, x="fEvTimeTOFMult", y="DeltaPiT0AC", xr=multaxis, yr=deltaaxis, yt="t-t_{exp}(#pi)-t_{0}^{T0AC} (ps)", title="t-t_{exp}(#pi)-t_{0}^{T0AC}")
+        makehisto(df, x="fEvTimeT0AC", xr=evtimeaxis)
+        makehisto(df, x="fEvTimeTOF", xr=evtimeaxis)
+        makehisto(df, x="fEvTimeT0AC", y="fEvTimeTOF", xr=evtimeaxis, yr=evtimeaxis, extracut="fEvTimeTOFMult>0", title="T0AC ev. time vs TOF ev. time")
+        makehisto(df, x="fEvTimeT0AC", y="fEvTimeTOF", xr=evtimeaxis, yr=evtimeaxis, extracut="fEvTimeTOFMult>15", title="T0AC ev. time vs TOF ev. time (TOF ev. mult > 15)")
+        makehisto(df, x="fEvTimeTOFMult", y="EvTimeReso", xr=multaxis, yr=evtimediffaxis, yt="t_{0}^{T0AC} - t_{0}^{TOF}", title="T0AC ev. time - TOF ev. time")
+
         print("pre-processing done, it took", time.time()-start, "seconds")
 
     drawn_histos = []
@@ -445,12 +447,12 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     max_multiplicity = 25
     if 1:
         # Drawing the event time resolution
-        colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3']
+        colors = ['#e41a1c', '#377eb8', '#4daf4a']
         draw_nice_frame(draw_nice_canvas("resolutionEvTime"), multiplicity_range, [0, 200], "TOF ev. mult.", "#sigma (ps)")
         leg = draw_nice_legend([0.64, 0.92], [0.57, 0.92])
         for i in h_slices:
             print("Drawing slice for event time resolution", i)
-            if "fEvTimeTOF_" not in i and "fEvTimeT0AC_" not in i:
+            if "fEvTimeTOF_" not in i and "fEvTimeT0AC_" not in i and "EvTimeReso_" not in i:
                 continue
             col = TColor.GetColor(colors.pop())
             s = h_slices[i].At(2).DrawCopy("SAME")
@@ -461,6 +463,17 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             s.SetLineColor(col)
             s.SetMarkerColor(col)
             s.SetMarkerStyle(20)
+            if "EvTimeReso_" in i:
+                s.SetTitle(s.GetTitle().replace("ev. time", "").strip().replace("#sigma", "#sigma(") + ")")
+                fasympt = TF1("fasympt", "sqrt([0]*[0]/x + [1]*[1])", 0, 40)
+                mult_value = 30
+                fasympt.SetParameter(0, -5.81397e+01)
+                s.Fit(fasympt, "QNWW", "", 4, 20)
+                fasympt.SetLineStyle(7)
+                fasympt.SetLineColor(s.GetLineColor())
+                fasympt.DrawClone("same")
+                draw_label(f"{hd.GetTitle()}|_{{{mult_value}}} = {fasympt.Eval(mult_value):.1f} ps", mult_value, fasympt.Eval(mult_value)+5, align=11, ndc=False, size=0.02)
+
             leg.AddEntry(s)
     if 1:
         colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3']
@@ -474,6 +487,8 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             if "fEvTimeTOF_" in i:
                 continue
             if "fEvTimeT0AC_" in i:
+                continue
+            if "EvTimeReso_vs_fEvTimeTOFMult" in i:
                 continue
             col = TColor.GetColor(colors.pop())
             s = h_slices[i].At(2).DrawCopy("SAME")
@@ -530,8 +545,11 @@ if __name__ == "__main__":
     parser.add_argument("--minpt", default=0.3, type=float, help="Minimum transverse momentum")
     parser.add_argument("--maxpt", default=0.4, type=float, help="Maximum transverse momentum")
     parser.add_argument("--maxfiles", default=-1, type=int, help="Maximum number of files")
+    parser.add_argument("--jobs", "-j", default=4, type=int, help="Number of multithreading jobs")
+    parser.add_argument("--tag", "-t", default="", help="Tag to use for the output file name")
     parser.add_argument("--replay_mode", "--replay", action="store_true", help="Replay previous output")
     args = parser.parse_args()
+    EnableImplicitMT(args.jobs)
     if args.background:
         gROOT.SetBatch(True)
-    main(args.filename, minPt=args.minpt, maxPt=args.maxpt, replay_mode=args.replay_mode, max_files=args.maxfiles)
+    main(args.filename, minPt=args.minpt, maxPt=args.maxpt, replay_mode=args.replay_mode, max_files=args.maxfiles, out_file_name=f"/tmp/TOFRESO{args.tag}.root")

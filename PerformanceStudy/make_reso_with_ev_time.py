@@ -379,6 +379,23 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
 
         print("+ took", time.time()-start, "seconds")
 
+    # Drawing the delta for pos and neg
+    if 1:
+        gROOT.ProcessLine("gErrorIgnoreLevel = 1001;")
+        for i in ["DeltaPrTOF_vs_fPt_Pos", "DeltaPrTOF_vs_fPt_Neg"]:
+            hd = drawhisto(i)
+            fitres = TObjArray()
+            hd.FitSlicesY(TF1("fgaus", "gaus", -300, 300), -1, -1, 10, "QNRG5", fitres)
+            draw_label(hd.GetName())
+            fitres[1].Draw("same")
+            fitres[1].SetLineColor(TColor.GetColor("#e41a1c"))
+            fitres[2].SetLineColor(TColor.GetColor("#4daf4a"))
+            for ff in fitres:
+                ff.SetLineWidth(2)
+                ff.SetMarkerColor(ff.GetLineColor())
+            leg = draw_nice_legend([0.83, 0.92], [0.83, 0.92], columns=2)
+            leg.AddEntry(fitres[1], "#mu", "l")
+
     # Drawing reference histogram
     draw_nice_canvas("reference_histo")
     reference_histo = histograms["fDoubleDelta_vs_fEvTimeTOFMult_reference"].ProjectionY("reference_histo")
@@ -427,8 +444,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
 
     if 1:
         # Drawing Double delta vs Pt and P
-        # for k in ["fPt", "fP"]:
-        for k in ["fP"]:
+        for k in ["fPt", "fP"]:
             hd = drawhisto("fDoubleDelta_vs_"+k, opt="COL", xrange=[0, 5], transpose=True)
             colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3']
             leg = draw_nice_legend([0.74, 0.92], [0.74, 0.92])
@@ -670,7 +686,10 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         fout.cd()
         for i in histograms:
             print("Writing", i)
-            histograms[i].Write()
+            if "transpose" in histograms[i].GetName():
+                histograms[i].Write(histograms[i].GetName().replace("transpose", "").replace("_copy", ""))
+            else:
+                histograms[i].Write()
         fout.Close()
 
 

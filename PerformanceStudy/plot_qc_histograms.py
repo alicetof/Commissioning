@@ -74,4 +74,5 @@ def main():
     input("Press enter to exit...")
 
 
-main()
+if __name__ == "__main__":
+    main()

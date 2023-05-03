@@ -16,8 +16,11 @@ if 1:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="Input file name", nargs="+")
+    parser.add_argument("--tags", default=[], help="Tag", nargs="+")
     args = parser.parse_args()
-    hn = ["tof-pid-qa/delta/pt/Pr", "tof-pid-qa/nsigma/pt/Pr", "tof-pid-beta-qa/tofmass/inclusive"]
+    hn = ["tof-pid-qa/delta/pt/Pi", "tof-pid-qa/nsigma/pt/Pi",
+          "tof-pid-qa/delta/pt/Pr", "tof-pid-qa/nsigma/pt/Pr",
+          "tof-pid-beta-qa/tofmass/inclusive"]
     histograms = {}
     for i in hn:
         histograms[i] = None
@@ -47,18 +50,22 @@ def main():
                 hp.Draw("COL")
                 fitres = TObjArray()
                 if "nsigma" in i:
-                    hp.FitSlicesY(TF1("fgaus", "gaus", -2, 2), -1, -1, 0, "QNR", fitres)
+                    hp.FitSlicesY(TF1("fgaus", "gaus", -2, 2), -1, -1, 0, "QNRG4", fitres)
                 elif "tofmass" in i:
                     hp.GetYaxis().SetRangeUser(0, 1.2)
-                    hp.FitSlicesY(TF1("fgaus", "gaus", 0.9, 1.1), -1, -1, 0, "QNR", fitres)
+                    hp.FitSlicesY(TF1("fgaus", "gaus", 0.9, 1.1), -1, -1, 0, "QNRG4", fitres)
                 else:
-                    hp.FitSlicesY(TF1("fgaus", "gaus", -300, 300), -1, -1, 0, "QNR", fitres)
-                draw_label(labels[k] + " tracks")
+                    hp.FitSlicesY(TF1("fgaus", "gaus", -300, 300), -1, -1, 0, "QNRG4", fitres)
+                if len(args.tags) > 0:
+                    draw_label(labels[k] + " tracks " + " ".join(args.tags))
+                else:
+                    draw_label(labels[k] + " tracks")
                 fitres[1].Draw("same")
                 fitres[1].SetLineColor(TColor.GetColor("#e41a1c"))
                 if "tofmass" not in i:
                     fitres[2].Draw("same")
                 fitres[2].SetLineColor(TColor.GetColor("#4daf4a"))
+                fitres[2].SetLineColor(TColor.GetColor("#377eb8"))
                 for ff in fitres:
                     ff.SetLineWidth(2)
                     ff.SetMarkerColor(ff.GetLineColor())

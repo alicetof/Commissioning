@@ -388,10 +388,10 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             hd.FitSlicesY(TF1("fgaus", "gaus", -300, 300), -1, -1, 10, "QNRG5", fitres)
             draw_label(hd.GetName())
             fitres[1].Draw("same")
-            fitres[1].SetLineColor(TColor.GetColor("#e41a1c"))
+            fitres[1].SetLineColor(TColor.GetColor("#377eb8"))
             fitres[2].SetLineColor(TColor.GetColor("#4daf4a"))
             for ff in fitres:
-                ff.SetLineWidth(2)
+                # ff.SetLineWidth(2)
                 ff.SetMarkerColor(ff.GetLineColor())
             leg = draw_nice_legend([0.83, 0.92], [0.83, 0.92], columns=2)
             leg.AddEntry(fitres[1], "#mu", "l")

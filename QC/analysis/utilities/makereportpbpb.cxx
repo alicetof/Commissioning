@@ -165,13 +165,12 @@ void makereportpbpb(TString period = "LHC23g", TString pass = "apass1")
     int miny = hHitMap[0]->GetYaxis()->FindBin(38);
     int maxy = hHitMap[0]->GetYaxis()->FindBin(52);
 
-    int totch =
-            (hHitMap[0]->GetNbinsX() * hHitMap[0]->GetNbinsY()) -
-            (maxx-minx)*(maxy-miny); //PHOS hole
+    int totch = (hHitMap[0]->GetNbinsX() * hHitMap[0]->GetNbinsY());
+    /* - (maxx-minx)*(maxy-miny); //PHOS hole
     cout << "Tot av. channels: " << totch << " = all ("
          << (hHitMap[0]->GetNbinsX() * hHitMap[0]->GetNbinsY()) <<
          ") - PHOS hole (" << (maxx - minx) * (maxy - miny) << ")" << endl;
-
+    */
     TH1D* hProjY[nruns];
     double deccorr[nruns];
     for (int i = 0; i < nruns; i++){
@@ -189,7 +188,7 @@ void makereportpbpb(TString period = "LHC23g", TString pass = "apass1")
                 if (hHitMap[i]->GetBinContent(isect, istrip) > 1000) countchannels[i]++;
             }
         }
-        cout << "Tot active channels: " << countchannels[i] << endl;
+        cout << "Frac active channels: " << countchannels[i]/totch << endl;
 
         tinylabel->DrawLatex(0.35, 0.85, Form("active channels: %.1f %s", (double)countchannels[i] / totch * 100, "%"));
         label->DrawLatex(0.75, 0.95, Form("Run %s", run.at(i).Data()));

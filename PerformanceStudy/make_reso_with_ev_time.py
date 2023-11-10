@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from plotMakers import plotDeltaTVsEta
 import numpy as np
 import argparse
 from ROOT import TFile, TChain, EnableImplicitMT, RDataFrame, gPad, TH1, TColor, TObjArray, gROOT, gStyle, TGraph, TF1, TGraphErrors, TH2F
@@ -53,10 +54,9 @@ sys.path.append(os.path.abspath("../QC/analysis/AO2D/"))
 sys.path.append(os.path.abspath("../QC/analysis/utilities/"))
 if 1:
     from plotting import draw_nice_canvas, update_all_canvases, set_nice_frame, draw_nice_legend, draw_nice_frame, draw_label, draw_diagonal, definenicepalette
-    from common import warning_msg
+    from common import warning_msg, wait_for_input
 
 # Post processing
-from plotMakers import plotDeltaTVsEta
 
 definenicepalette()
 
@@ -546,7 +546,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             leg.AddEntry(fitres[1], "#mu", "l")
 
     # test
-    plotDeltaTVsEta.process(histograms=histograms)
+    # plotDeltaTVsEta.process(histograms=histograms)
     # Time alignment vs eta
     if 1:
         hd = drawhisto("DeltaPiT0AC_vs_fEta", transpose=False)
@@ -922,8 +922,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
 
     all_canvases = update_all_canvases()
 
-    if not gROOT.IsBatch():
-        input("Press enter to exit")
+    wait_for_input()
 
     # Saving images
     if 1:

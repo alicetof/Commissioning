@@ -24,7 +24,7 @@ definenicepalette()
 
 
 def main(fnames=["/tmp/TOFCALIB_pos_pt1.30_1.45.root", "/tmp/TOFCALIB_neg_pt1.30_1.45.root"]):
-    def donone(fname):
+    def do_one(fname):
         print(fname)
         h_phi_integrated = []
         fin = TFile(fname, "READ")
@@ -36,7 +36,12 @@ def main(fnames=["/tmp/TOFCALIB_pos_pt1.30_1.45.root", "/tmp/TOFCALIB_neg_pt1.30
         gmean = TGraph()
         gmean.SetName("gmean")
         for i in range(1, mean.GetNbinsX()+1):
-            gmean.SetPoint(gmean.GetN(), mean.GetXaxis().GetBinCenter(i), mean.GetBinContent(i))
+            if i == 1:
+                gmean.AddPoint(mean.GetXaxis().GetBinLowEdge(i), mean.GetBinContent(i))
+            elif i == mean.GetNbinsX():
+                gmean.AddPoint(mean.GetXaxis().GetBinUpEdge(i), mean.GetBinContent(i))
+            else:
+                gmean.AddPoint(mean.GetXaxis().GetBinCenter(i), mean.GetBinContent(i))
         gmean.Draw("LPsame")
         draw_nice_canvas("sigma", replace=False)
         sigma.Draw()
@@ -46,7 +51,7 @@ def main(fnames=["/tmp/TOFCALIB_pos_pt1.30_1.45.root", "/tmp/TOFCALIB_neg_pt1.30
         return mean, sigma, h_phi_integrated[0], gmean
 
     for i in fnames:
-        donone(i)
+        do_one(i)
 
     input("Press enter to continue")
 

@@ -1,0 +1,4 @@
+#!/bin/bash
+source PATH_TO_CONFIG/config
+
+fusermount -u $PATH_CERNBOX

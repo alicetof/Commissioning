@@ -1,0 +1,4 @@
+#!/bin/bash
+source PATH_TO_CONFIG/config
+
+sshfs $CERN_USER@lxplus.cern.ch:/eos/user/f/fnoferin $PATH_CERNBOX

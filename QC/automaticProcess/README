@@ -1,0 +1,28 @@
+# in your centos system as root
+wget http://cernbox.cern.ch/cernbox/doc/Linux/centos8-cernbox.repo
+cp centos8-cernbox.repo /etc/yum.repos.d/cernbox.repo
+yum update
+yum install -y cernbox-client
+yum install -y sshfs
+
+# run auto script with an active alien token
+./runauto.sh
+
+#add to requests file a line like
+
+#data: data year period pass
+data 2023 LHC23zt apass4
+
+#MC: sim year period cycle
+sim 2024 LHC24e2 0
+
+
+
+# put the contenct of cernboxdir in your homedir
+# check user and path in the scripts
+# mount cernbox
+~/mountcernbox
+# add to cron
+0,30 * * * * ~/syncQC.sh
+
+

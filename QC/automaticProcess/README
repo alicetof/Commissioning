@@ -5,6 +5,11 @@ yum update
 yum install -y cernbox-client
 yum install -y sshfs
 
+# configure
+# edit config file
+# run ./install.sh
+# mv to the path you set as main in config and start
+
 # run auto script with an active alien token
 ./runauto.sh
 

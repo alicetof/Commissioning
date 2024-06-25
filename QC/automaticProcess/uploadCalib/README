@@ -1,0 +1,38 @@
+# prepare list of runs to be uploaded
+nano runs
+
+# all runs has to be available in ../tobeproc file with a format like this
+# run start_of_trigger end_of_trigger
+553185  1718945336000   1718955040000
+553188  1718955614000   1718959841000
+553189  1718960288000   1718969875000
+553193  1718970311000   1718986742000
+553219  1718998858000   1719017881000
+
+# note that if for same reason a run was not calibrated you should extend the end_of_trigger of the previous one to cover it
+
+# REQUIREMENTS
+#objects produced by automatic calibration are expected (from prepareRun.C) to be in
+../TOF/Calib/LHCphase
+../TOF/Calib/ChannelCalib
+
+#create if needed dir (be sure they are intially empty)
+mkdir TOF
+mkdir TOF/Calib
+mkdir TOF/Calib/LHCphase
+mkdir TOF/Calib/ChannelCalib
+
+# run
+./prepare.sh
+
+# adjust com file adding on the top
+
+#!/bin/bash
+export ccdbhost=http://alice-ccdb.cern.ch
+#export ccdbhost=http://ccdb-test.cern.ch:8080
+export ALICEO2_CCDB_CURL_TIMEOUT=60
+
+# zip files
+zip -r filename.zip TOF com
+
+# upload it in alien and open a Jira ticket to request the upload in the CCDB

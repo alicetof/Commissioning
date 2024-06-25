@@ -1,4 +1,6 @@
 #!/bin/bash
+export CURRENT_YEAR=${CURRENT_YEAR:-2024}
+
 rm o2_ctf_*.root
 
 alien.py find /alice/data/$CURRENT_YEAR/$1/$2/$3 o2calib_tof.root|awk '{print "alien://"$1}' |sort >listafile

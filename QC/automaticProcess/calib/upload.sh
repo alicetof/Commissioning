@@ -1,4 +1,5 @@
 #!/bin/bash
+export CURRENT_YEAR=${CURRENT_YEAR:-2024}
 export period=$1
 export run=$2
 alien.py mkdir /alice/cern.ch/user/t/tofcalib/$CURRENT_YEAR/$period

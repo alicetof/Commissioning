@@ -3,6 +3,7 @@
 #include "DataFormatsTOF/CalibTimeSlewingParamTOF.h"
 #include "DataFormatsTOF/CalibInfoTOFshort.h"
 #include "TOFBase/Utils.h"
+#include "TF1.h"
 
 std::vector<o2::dataformats::CalibInfoTOFshort> mVectC, *mPvectC = &mVectC;
 TChain *mTreeFit;
@@ -28,6 +29,21 @@ TH1F *h1d,*hfr,*hcheckBC;
 TH1F *hfrDist,*hOffsetDist,*hsigmaDist;
 
 void doCal(int runarg){
+  TF1 *fMod = new TF1("fMod","[0]*(1 + gaus(1) + gaus(4) + gaus(7))"); // modulation of fraction vs channel
+  fMod->SetNpx(5000);
+  fMod->SetLineColor(8);
+  
+  fMod->SetParameter(0,1);
+  fMod->SetParameter(1,-0.101372);
+  fMod->SetParameter(2,0);
+  fMod->SetParameter(3,102.644);
+  fMod->SetParameter(4,-0.0610555);
+  fMod->SetParameter(5,1507.81);
+  fMod->SetParameter(6,98.553);
+  fMod->SetParameter(7,-0.0908738);
+  fMod->SetParameter(8,3501.12);
+  fMod->SetParameter(9,60.0367);
+
   for(int isec=0; isec < 18; isec++){
     h2d[isec] = new TH2F(Form("h2d_%d",isec),";nchannel;#Deltat (ps)", o2::tof::Geo::NCHANNELS/18, 0, o2::tof::Geo::NCHANNELS/18, 12500, -100000, 150000);
   }
@@ -58,7 +74,8 @@ void doCal(int runarg){
   fitFunc->SetParameter(0, 100);
   fitFunc->SetParameter(1, 0);
   fitFunc->SetParameter(2, 200);
-  
+  fitFunc->SetParLimits(2, 150,450);
+
   int chPerSec = 91*96;
   for(int i=0; i < o2::tof::Geo::NCHANNELS; i++){
     if(!(i%10000)){
@@ -73,7 +90,8 @@ void doCal(int runarg){
     fitFunc->SetParameter(1, xpeak);
     fitFunc->SetParLimits(1, xpeak-300, xpeak+300);
     fitFunc->SetParameter(2, 200);
-    htmp->Fit(fitFunc,"WW,Q0","",xpeak-300,xpeak+300);
+    fitFunc->SetParLimits(2, 150,450);
+    htmp->Fit(fitFunc,"WW,Q0,B","",xpeak-300,xpeak+300);
 
     double total = htmp->Integral(1, htmp->GetNbinsX());
 
@@ -85,8 +103,10 @@ void doCal(int runarg){
     }
     
     float sigma = fabs(fitFunc->GetParameter(2));
+    if(sigma < 150 || sigma > 450){
+       printf("sigma = %.0f\n",sigma);
+    }
     sigmaCh[i] = sigma;
-    hfrDist->Fill(fraction[i]);
     hsigmaDist->Fill(sigma);
     
     if(fitFunc->GetParameter(1) < -99000 || fitFunc->GetParameter(1) > 99000){ // isProblematic
@@ -98,7 +118,12 @@ void doCal(int runarg){
     offsets[i] = fitFunc->GetParameter(1);
     int binLow = htmp->FindBin(offsets[i]-5*sigma);
     int binHigh = htmp->FindBin(offsets[i]+5*sigma);
-    fraction[i] = htmp->Integral(binLow,binHigh) / total;
+
+    int ich = i % 8736;
+    if(ich > 4368){
+      ich = 8736 - ich;
+    }
+    fraction[i] = htmp->Integral(binLow,binHigh) / total;// / fMod->Eval(ich);
 
     hfrDist->Fill(fraction[i]);
     hfr->SetBinContent(i+1, fraction[i]);
@@ -120,12 +145,12 @@ void doCal(int runarg){
   fitThr->SetParameter(2,0.5);
   fitThr->SetParameter(1,0.3);
   hfrDist->Fit(fitThr,"WW,Q0","",0,1);
-  frThreshold = fitThr->GetParameter(1) - fitThr->GetParameter(2)*5;
+  frThreshold = fitThr->GetParameter(1) - fitThr->GetParameter(2)*7; // it was 5
   fitThr->SetParameter(0,100);
   fitThr->SetParameter(2,200);
   fitThr->SetParameter(1,100);
   hsigmaDist->Fit(fitThr,"WW,Q0","",0,500);
-  sigmaThreshold = fitThr->GetParameter(1) + fitThr->GetParameter(2)*7;
+  sigmaThreshold = fitThr->GetParameter(1) + fitThr->GetParameter(2)*8; // it was 7
 
   printf("frThreshold = %.2f\n",frThreshold);
   printf("sigmaThreshold = %.0f ps\n",sigmaThreshold);
@@ -221,15 +246,24 @@ int extractNewTimeSlewing(o2::dataformats::CalibTimeSlewingParamTOF* oldTS)
     int ch = i % o2::tof::Geo::NCHANNELS;
     int isec = ch / chPerSec;
     int chLoc = ch % chPerSec;
+    float dtold = 1000000;
     for(const auto& obj : mVectC){
       float dt = obj.getDeltaTimePi() - oldTS->evalTimeSlewing(ch, obj.getTot());
+      if(std::abs(dt-dtold) < 10){ // avoid repetion of some entry (sometimes happening)
+        dtold = dt;
+        continue;
+      }
       if(obj.getFlags() != 2){ // 8 means ITS-TPC-TRD tracks (2 means ITS-TPC)
 //         continue;
          float strip = chLoc/96.;
 //         dt -= 5*abs(strip-45) + 23.82;
        }
+      dtold = dt;
       h2d[isec]->Fill(chLoc, dt);
       h2check->Fill(ch, dt);
+//      if(ch==1987){
+//        printf("%f %f\n",dt,obj.getDeltaTimePi());
+//      }
       h2checkBC->Fill(ch, dt);
     }
   }

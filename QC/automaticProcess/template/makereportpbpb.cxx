@@ -5,7 +5,7 @@ void canvas_hestetics_single(TCanvas* c);
 void canvas_hestetics_layout(TCanvas* c, int n = 3, int n1 = 0);
 void canvas_multiple(TCanvas *c, int n);
 
-void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
+void makereportpbpb(TString period = "LHCtest", TString pass = "apass1")
 {
 
     gStyle->SetOptFit();
@@ -157,6 +157,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
     ///////////////////////////
 
     TCanvas* chitmap[nruns];
+    TCanvas* decodingerrors[nruns];
     TCanvas* chitmap_summary = new TCanvas(Form("chitmap_summary"), "", 1200, 1000);
     canvas_multiple(chitmap_summary, nruns);
 
@@ -199,6 +200,11 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
         } else {
             countchannels[i] = totch;
         }
+
+        if(countchannels[i] < 1){
+            countchannels[i] = 1;
+        }
+
         cout << "Frac active channels: " << countchannels[i]/totch << endl;
 
         tinylabel->DrawLatex(0.35, 0.85, Form("active channels: %.1f %s", (double)countchannels[i] / totch * 100, "%"));
@@ -207,11 +213,24 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
         chitmap[i]->SaveAs(Form("images/HitMap_%s.png", run.at(i).Data()));
         chitmap[i]->SaveAs(Form("Summary_Run%s_%s_%s.pdf(", run.at(i).Data(), period.Data(), pass.Data()));
 
+        decodingerrors[i] = new TCanvas(Form("decodingerrors_%s", run.at(i).Data()), "", 1000, 900);
+        canvas_hestetics_single(decodingerrors[i]);
+
         if (hDecodingE[i]) {
+
+            hDecodingE[i]->SetTitle("");
+            hDecodingE[i]->Draw("colz");
+            hDecodingE[i]->SetStats(0);
+            label->DrawLatex(0.75, 0.95, Form("Run %s", run.at(i).Data()));
+            label->DrawLatex(0.3, 0.95, Form("%s %s", period.Data(), pass.Data()));
+
             deccorr[i] = 0;
             //Projection for Decoding Errors
             hProjY[i] = (TH1D*)hDecodingE[i]->ProjectionY();
-            hProjY[i]->Scale(1./hProjY[i]->GetBinContent(1));
+            hProjY[i]->SetName(Form("hProjY%i",i));
+            if(hProjY[i]->GetBinContent(1) > 0){
+                hProjY[i]->Scale(1./hProjY[i]->GetBinContent(1));
+            }
             for (int ibin = 3; ibin < hProjY[i]->GetNbinsX(); ibin++){
                 deccorr[i] += hProjY[i]->GetBinContent(ibin);
             }
@@ -220,6 +239,9 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
             deccorr[i] = 0;
             hProjY[i] = 0x0;
         }
+
+        decodingerrors[i]->SaveAs(Form("images/DecodingErrors_%s.png", run.at(i).Data()));
+        decodingerrors[i]->SaveAs(Form("Summary_Run%s_%s_%s.pdf(", run.at(i).Data(), period.Data(), pass.Data()));
 
         chitmap_summary->cd(i+1);
         if (hHitMap[i]) hHitMap[i]->Draw("colz");
@@ -239,6 +261,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
     for (int i = 0; i < nruns; i++){
         cdec[i] = new TCanvas(Form("cdec%i",i), "", 1000, 900);
         canvas_hestetics_single(cdec[i]);
+        cdec[i]->cd();
         legdec[i] = new TLegend(0.29, 0.82, 0.6, 0.88);
         legdec[i]->SetBorderSize(0);
         legdec[i]->SetTextFont(42);
@@ -264,7 +287,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
             label->DrawLatex(0.3, 0.95, Form("%s %s", period.Data(), pass.Data()));
             label->DrawLatex(0.75, 0.95, Form("Run %s", run.at(i).Data()));
         }
-        cdec[i]->SaveAs(Form("images/DecodingErrors_%s.png", run.at(i).Data()));
+        cdec[i]->SaveAs(Form("images/TRMInefficiency_%s.png", run.at(i).Data()));
         cdec[i]->SaveAs(Form("Summary_Run%s_%s_%s.pdf", run.at(i).Data(), period.Data(), pass.Data()));
     }
 
@@ -279,7 +302,8 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
 
         corbit[i] = new TCanvas(Form("corbit%i",i), "", 1000, 900);
         canvas_hestetics_single(corbit[i]);
-        if (hOrbitVsCrate[i]) {
+        corbit[i]->cd();
+        if (hOrbitVsCrate[i] && hOrbitVsCrate[i]->Integral(1, 72, 1, 3) > 0) {
             hOrbitVsCrate[i]->SetTitle("");
             hOrbitVsCrate[i]->SetStats(0);
             hOrbitVsCrate[i]->GetYaxis()->SetRangeUser(0,150);
@@ -421,7 +445,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
         htrendEff[itracktype]->SetMarkerStyle(20);
         htrendEff[itracktype]->Draw("EP");
 
-        TLine *linemc = new TLine(0., 0.65, nruns, 0.65);
+        TLine *linemc = new TLine(0., 0.6, nruns, 0.6);
         linemc->SetLineColor(kRed);
         linemc->SetLineWidth(1);
         linemc->SetLineStyle(1);
@@ -898,14 +922,14 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
 
     write2->Close();
 
-    for (int n_run = 0; n_run < nruns; n_run++)
+    /*for (int n_run = 0; n_run < nruns; n_run++)
     {
         for (int i_obj = 0; i_obj < n; i_obj++)
         {
             if (f[i_obj][n_run])
                 f[i_obj][n_run]->Close();
         }
-    }
+    }*/
 
 
 }

@@ -1,8 +1,8 @@
 # in your centos system as root
-wget http://cernbox.cern.ch/cernbox/doc/Linux/centos8-cernbox.repo
-cp centos8-cernbox.repo /etc/yum.repos.d/cernbox.repo
-yum update
-yum install -y cernbox-client
+# instructions here:
+# https://cernbox.web.cern.ch/cernbox/downloads/linux/
+
+# install sshfs (e.g. on almalinux9/redhat)
 yum install -y sshfs
 
 # configure
@@ -18,9 +18,8 @@ yum install -y sshfs
 #data: data year period pass
 data 2023 LHC23zt apass4
 
-#MC: sim year period cycle
-sim 2024 LHC24e2 0
-
+#MC: sim year period cycle year_anchored_data pass_anchored_data
+sim 2024 LHC24e2 0 2023 apass3 
 
 
 # put the contenct of cernboxdir in your homedir

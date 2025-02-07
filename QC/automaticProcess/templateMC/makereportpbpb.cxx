@@ -102,7 +102,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
     {
         for (int i_obj = 0; i_obj < n; i_obj++)
         {
-            f[i_obj][n_run] = TFile::Open(Form("Run%s/rootfiles/%s.root",  run.at(n_run).Data(), name[i_obj].Data()));
+            f[i_obj][n_run] = TFile::Open(Form("Run%s_%s/rootfiles/%s.root",  run.at(n_run).Data(), period.Data() ,name[i_obj].Data()));
         }
 
         if (f[0][n_run]) hHitMap[n_run] = (TH2F *)f[0][n_run]->Get("ccdb_object");
@@ -199,6 +199,11 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
         } else {
             countchannels[i] = totch;
         }
+
+        if(countchannels[i] < 1){
+            countchannels[i] = 1;
+        }
+
         cout << "Frac active channels: " << countchannels[i]/totch << endl;
 
         tinylabel->DrawLatex(0.35, 0.85, Form("active channels: %.1f %s", (double)countchannels[i] / totch * 100, "%"));
@@ -211,7 +216,9 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
             deccorr[i] = 0;
             //Projection for Decoding Errors
             hProjY[i] = (TH1D*)hDecodingE[i]->ProjectionY();
-            hProjY[i]->Scale(1./hProjY[i]->GetBinContent(1));
+            if(hProjY[i]->GetBinContent(1) > 0){
+                hProjY[i]->Scale(1./hProjY[i]->GetBinContent(1));
+            }
             for (int ibin = 3; ibin < hProjY[i]->GetNbinsX(); ibin++){
                 deccorr[i] += hProjY[i]->GetBinContent(ibin);
             }
@@ -279,7 +286,7 @@ void makereportpbpb(TString period = "LHC23zs", TString pass = "apass1")
 
         corbit[i] = new TCanvas(Form("corbit%i",i), "", 1000, 900);
         canvas_hestetics_single(corbit[i]);
-        if (hOrbitVsCrate[i]) {
+        if (hOrbitVsCrate[i] && hOrbitVsCrate[i]->Integral(1, 72, 1, 3) > 0) {
             hOrbitVsCrate[i]->SetTitle("");
             hOrbitVsCrate[i]->SetStats(0);
             hOrbitVsCrate[i]->GetYaxis()->SetRangeUser(0,150);

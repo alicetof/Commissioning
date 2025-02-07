@@ -4,6 +4,8 @@ export type=$1
 export year=$2
 export period=$3
 export pass=$4
+export compdatayear=$5
+export compdatapass=$6
 
 if [ $type == "data" ]; then
 
@@ -32,6 +34,6 @@ alien.py find /alice/$type/$year/$period/$pass qc_finalization.json|sed "s|qc_fi
 cat listaDone_$period |awk -F"/" '{print "./processReqMC.sh","/alice/sim/"$4"/"$5"/"$6,$7,$5,$4}'|bash
 
 cd $PATH_QC/sim/$year/
-./mkreportsMC.sh $period
+./mkreportsMC.sh $period $compdatayear $compdatapass
 cd -
 fi

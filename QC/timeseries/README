@@ -1,0 +1,18 @@
+# creating our tree from TPC timeseries accessing inputs from remote (alien), note that in the script apass5 is assumed (in case change it)
+./dorun.sh PERIOD RUN
+#example ./dorun.sh LHC23zzh 544091
+# output -> 544091.root
+
+
+# process the output (files list taken from listaT)
+# requirements
+# 1)dedx peramaterization (provided a default here) -> expDeDx.root
+# 2) mismatch plots from qcdb -> etaMism.root, mism.root
+# qc_async/TOF/MO/PID/mHistMismatchVsEta
+# qc_async/TOF/MO/PID/LoverCvsEta
+
+ls YOUR_RUNS > listaT
+root -b -q -l process.C
+
+# check paramerization of track contribution to expected time resolution (only antiparticles used)
+root getRes.C

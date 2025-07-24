@@ -48,7 +48,28 @@ TF1* GaussianTail(TString name = "tailgaus", float min=-10, float max=10)
   return f;
 }
 """)
-    from ROOT import GaussianTail
+    gInterpreter.Declare("""
+                         TH1F* alignment = nullptr;
+                         void setup_alignment() {
+                         TFile falignment("/tmp/eta_alignment.root", "READ");
+                         if (!falignment.IsOpen()) {
+                        Printf("ASDASD");
+                         return; }
+    alignment = (TH1F*)falignment.Get("alignment");
+                         alignment->SetDirectory(0);
+                         Printf("Loaded alignment histogram from %s", falignment.GetName());
+                         }
+                        float correction(float eta) {
+                         if(alignment == nullptr) {
+                                return 0;
+                            }
+                            int bin = alignment->FindBin(eta);
+                         return alignment->GetBinContent(bin);
+                         }
+                         """)
+    from ROOT import GaussianTail, setup_alignment
+    setup_alignment()
+
 
 
 sys.path.append(os.path.abspath("../QC/analysis/AO2D/"))
@@ -127,10 +148,10 @@ def makehisto(input_dataframe,
     n = f"{x}"
     if y is not None:
         n = f"{y}_vs_{x}"
-    # if z is not None:
-    #     if y is None:
-    #         raise ValueError("Cannot have z without y")
-    #     n = f"{z}_vs_{y}_vs_{x}"
+    if z is not None:
+        if y is None:
+            raise ValueError("Cannot have z without y")
+        n = f"{z}_vs_{y}_vs_{x}"
     if extracut is not None and extracut_to_name:
         n = f"{n}_{extracut}"
     if tag is not None:
@@ -175,8 +196,9 @@ def makehisto(input_dataframe,
     add_mode = False
     if n in histograms:
         add_mode = True
+        print("Adding to existing histogram", n, "in", xr, "vs", yr, "with xt =", xt, "and yt =", yt, "logx", logx)
     else:
-        print("Booking histogram", n, "in", xr, "vs", yr, "with xt =", xt, "and yt =", yt, "logx", logx)
+        print("Booking histogram", n, "in", xr, "vs", yr, "vs", zr, "with xt =", xt, "and yt =", yt, "and zt =", zt, "logx", logx)
 
     df = input_dataframe
     if extracut is not None:
@@ -269,11 +291,12 @@ def define_extra_columns(df):
     df = df.Define("FT0A_minus_FT0C", "fT0ACorrected - fT0CCorrected")
     df = df.Define("FT0A_minus_TOF", "fT0ACorrected - fEvTimeTOF")
     df = df.Define("FT0C_minus_TOF", "fT0CCorrected - fEvTimeTOF")
+    df = df.Define("Correction", "correction(fEta)")
     for i in ["Pi", "Ka", "Pr"]:
-        df = df.Define(f"Delta{i}TOF", f"fDeltaT{i}-fEvTimeTOF")
-        df = df.Define(f"Delta{i}T0AC", f"fDeltaT{i}-fEvTimeT0AC")
+        df = df.Define(f"Delta{i}TOF", f"fDeltaT{i}-Correction-fEvTimeTOF")
+        df = df.Define(f"Delta{i}T0AC", f"fDeltaT{i}-Correction-fEvTimeT0AC")
     for i in ["El", "Mu", "Ka", "Pr"]:
-        df = df.Define(f"DeltaPi{i}", f"fDeltaTPi-fDeltaT{i}")
+        df = df.Define(f"DeltaPi{i}", f"fDeltaTPi-fDeltaT{i}-Correction")
     return df
 
 
@@ -355,13 +378,20 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         # Double delta
         makehisto(df, x="fP", y="fDoubleDelta", xr=ptaxis, yr=deltaaxis, title="#Delta#Deltat vs p")
         makehisto(df, x="fPt", y="fDoubleDelta", xr=ptaxis, yr=deltaaxis, title="#Delta#Deltat vs pT")
-        # T - texp - TEv
+        # T - texp - TEv e.g. DeltaPiT0AC_vs_fPt
         for i in ["Pi", "Ka", "Pr"]:
             makehisto(df, x="fPt", y=f"Delta{i}TOF", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}TOF vs pT")
             makehisto(df, x="fPt", y=f"Delta{i}T0AC", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}T0AC vs pT")
+            makehisto(df, x="fP", y=f"Delta{i}T0AC", z="fEta", xr=ptaxis, yr=deltaaxis, zr=etaaxis, title=f"Delta{i}TOF vs p vs #eta")
             eta_pt_range = [1.3, 1.35]
-            makehisto(df.Filter(f"fPt>{eta_pt_range[0]}").Filter(f"fPt<{eta_pt_range[1]}"), x="fEta", y=f"Delta{i}T0AC", xr=etaaxis, yr=deltaaxis,
+            if 0:
+                # Here DeltaPiT0AC_vs_fEta vs pT
+                makehisto(df.Filter(f"fPt>{eta_pt_range[0]}").Filter(f"fPt<{eta_pt_range[1]}"), x="fEta", y=f"Delta{i}T0AC", xr=etaaxis, yr=deltaaxis,
                       title=f"Delta{i}T0AC vs Eta for {eta_pt_range[0]:.2f} < pT < {eta_pt_range[1]:.2f}")
+            else:
+                # Here DeltaPiT0AC_vs_fEta vs p
+                makehisto(df.Filter(f"fP>{eta_pt_range[0]}").Filter(f"fP<{eta_pt_range[1]}"), x="fEta", y=f"Delta{i}T0AC", xr=etaaxis, yr=deltaaxis,
+                      title=f"Delta{i}T0AC vs Eta for {eta_pt_range[0]:.2f} < p < {eta_pt_range[1]:.2f}")
         makehisto(df.Filter("fPtSigned>=0"), x="fPt", y="DeltaPrTOF", xr=ptaxis, yr=deltaaxis, title="DeltaPrTOF vs pT", tag="Pos")
         makehisto(df.Filter("fPtSigned<=0"), x="fPt", y="DeltaPrTOF", xr=ptaxis, yr=deltaaxis, title="DeltaPrTOF vs pT", tag="Neg")
         for i in ["El", "Mu", "Ka", "Pr"]:
@@ -608,7 +638,10 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         leg.AddEntry(result_arr.At(1), "#mu", "l")
         leg.AddEntry(result_arr.At(2), "#sigma", "l")
         tit = hd.GetTitle().split(" ")
-        tit = f"{tit[-5]} < #it{{p}}_{{T}} < {tit[-1]} GeV/#it{{c}}"
+        if "pT" in tit:
+            tit = f"{tit[-5]} < #it{{p}}_{{T}} < {tit[-1]} GeV/#it{{c}}"
+        else:
+            tit = f"{tit[-5]} < #it{{p}} < {tit[-1]} GeV/#it{{c}}"
         ptlabel = draw_label(tit, x=0.14, y=0.97, align=11)
         can = draw_nice_canvas("singlebin")
         for i in range(1, hd.GetNbinsX()+1):
@@ -617,6 +650,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             for j in range(fgaus_eta_model.GetNpar()):
                 fgaus_eta_model.SetParameter(j, result_arr.At(j).GetBinContent(i))
             if 1:  # Refit
+                hproj.Fit(fgaus_eta_model, "QNRWW", "", -200, 200)
                 hproj.Fit(fgaus_eta_model, "QNRWW", "", -200 + fgaus_eta_model.GetParameter(1), 200 + fgaus_eta_model.GetParameter(1))
                 for j in range(fgaus_eta_model.GetNpar()):
                     result_arr.At(j).SetBinContent(i, fgaus_eta_model.GetParameter(j))
@@ -626,10 +660,11 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             can.Update()
             # input("Press enter to continue")
         ptlabel.Draw()
-        ptlabel.Draw()
         draw_nice_canvas("etaAlignment")
         draw_nice_frame(None, result_arr.At(1), [-100, 100], result_arr.At(1), "ps")
         result_arr.At(1).Draw("SAME")
+        alignment = result_arr.At(1).Clone("alignment")
+        alignment.SaveAs("/tmp/eta_alignment.root")
         result_arr.At(2).Draw("same")
         leg.Draw()
         ptlabel.Draw()
@@ -1010,7 +1045,9 @@ if __name__ == "__main__":
     parser.add_argument("--minpt", default=0.3, type=float, help="Minimum transverse momentum")
     parser.add_argument("--maxpt", default=0.4, type=float, help="Maximum transverse momentum")
     parser.add_argument("--maxfiles", default=-1, type=int, help="Maximum number of files")
-    parser.add_argument("--jobs", "-j", default=4, type=int, help="Number of multithreading jobs")
+    import multiprocessing
+    cpus = multiprocessing.cpu_count()
+    parser.add_argument("--jobs", "-j", default=cpus-1, type=int, help="Number of multithreading jobs")
     parser.add_argument("--tag", "-t", default="", help="Tag to use for the output file name")
     parser.add_argument("--replay_mode", "--replay", action="store_true", help="Replay previous output")
     parser.add_argument("--label", "-l", help="Label to put on plots", nargs="+", default=[""])

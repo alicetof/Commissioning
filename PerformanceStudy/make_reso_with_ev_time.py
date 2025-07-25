@@ -311,7 +311,9 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
          do_draw_correlation_evtime_ft0_tof=False,
          do_draw_comparison_pos_neg=False,
          do_draw_resolution_with_FT0=True,
-         do_draw_resolution_vs_mult=False):
+         do_draw_resolution_vs_mult=False,
+         do_draw_time_alignment_vs_eta=True,
+         do_draw_ev_time_resolution_vs_mult=False):
     print("Using file:", input_file_name)
     if label.strip() == "":
         label = None
@@ -359,7 +361,9 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         df = RDataFrame(chain)
         # Apply filters
         # df = df.Filter("fEta>0.3")
-        # df = df.Filter("fEta<0.4")
+        if 1:
+            df = df.Filter("fEta<0.5")
+            df = df.Filter("fEta>-0.5")
         # df = df.Filter("fPhi>0.3")
         # df = df.Filter("fPhi<0.4")
         df = df.Filter("fTOFChi2<5")
@@ -380,9 +384,9 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         makehisto(df, x="fPt", y="fDoubleDelta", xr=ptaxis, yr=deltaaxis, title="#Delta#Deltat vs pT")
         # T - texp - TEv e.g. DeltaPiT0AC_vs_fPt
         for i in ["Pi", "Ka", "Pr"]:
-            makehisto(df, x="fPt", y=f"Delta{i}TOF", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}TOF vs pT")
-            makehisto(df, x="fPt", y=f"Delta{i}T0AC", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}T0AC vs pT")
-            makehisto(df, x="fP", y=f"Delta{i}T0AC", z="fEta", xr=ptaxis, yr=deltaaxis, zr=etaaxis, title=f"Delta{i}TOF vs p vs #eta")
+            makehisto(df, x="fP", y=f"Delta{i}TOF", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}TOF vs pT")
+            makehisto(df, x="fP", y=f"Delta{i}T0AC", xr=ptaxis, yr=deltaaxis, title=f"Delta{i}T0AC vs pT")
+            # makehisto(df, x="fP", y=f"Delta{i}T0AC", z="fEta", xr=ptaxis, yr=deltaaxis, zr=etaaxis, title=f"Delta{i}TOF vs p vs #eta")
             eta_pt_range = [1.3, 1.35]
             if 0:
                 # Here DeltaPiT0AC_vs_fEta vs pT
@@ -394,7 +398,8 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
                       title=f"Delta{i}T0AC vs Eta for {eta_pt_range[0]:.2f} < p < {eta_pt_range[1]:.2f}")
         makehisto(df.Filter("fPtSigned>=0"), x="fPt", y="DeltaPrTOF", xr=ptaxis, yr=deltaaxis, title="DeltaPrTOF vs pT", tag="Pos")
         makehisto(df.Filter("fPtSigned<=0"), x="fPt", y="DeltaPrTOF", xr=ptaxis, yr=deltaaxis, title="DeltaPrTOF vs pT", tag="Neg")
-        for i in ["El", "Mu", "Ka", "Pr"]:
+        if 0:
+         for i in ["El", "Mu", "Ka", "Pr"]:
             part = {"El": "e", "Mu": "#mu", "Ka": "K", "Pr": "p"}[i]
             makehisto(df, x="fP", y="DeltaPi" + i, xr=ptaxis, yr=tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
             makehisto(df, x="fPt", y="DeltaPi" + i, xr=ptaxis, yr=tminustexpaxis, yt="t_{exp}(#pi) - t_{exp}(%s)" % part, title="t_{exp}(#pi) - t_{exp}(%s)" % part)
@@ -574,12 +579,12 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     # PID 2D plots
     if 1:
         for i in ["Pi", "Ka", "Pr"]:
-            hd = drawhisto(f"Delta{i}T0AC_vs_fPt")
+            hd = drawhisto(f"Delta{i}T0AC_vs_fP")
             plot2DPIDPlots.do_plot(hd)
 
     # Drawing the resolution of the T-TExpPi-Tev with the FT0
     if do_draw_resolution_with_FT0:
-        hd = drawhisto("DeltaPiT0AC_vs_fPt")
+        hd = drawhisto("DeltaPiT0AC_vs_fP")
         draw_nice_canvas("TOF_resolution_with_FT0")
         reso_pt_range = [1.3, 1.35]
         reso_pt_range_b = [hd.GetXaxis().FindBin(i) for i in reso_pt_range]
@@ -590,6 +595,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
             fgaus_reso_with_ft0 = TF1("fgaus_reso_with_ft0", "gaus", -1000, 1000)
         else:  # Gaussian + tail model
             fgaus_reso_with_ft0 = GaussianTail("tailgaus", -1000, 1000)
+        fgaus_reso_with_ft0.SetNpx(1000)
         htof_reso_with_ft0.Fit(fgaus_reso_with_ft0, "N", "", -200, 200)
         fgaus_reso_with_ft0.Draw("same")
         draw_label(f"{reso_pt_range[0]:.2f} < #it{{p}}_{{T}} < {reso_pt_range[1]:.2f} GeV/#it{{c}}", 0.35, 0.85, 0.03)
@@ -621,7 +627,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     # test
     # plotDeltaTVsEta.process(histograms=histograms)
     # Time alignment vs eta
-    if 1:
+    if do_draw_time_alignment_vs_eta:
         hd = drawhisto("DeltaPiT0AC_vs_fEta", transpose=False)
         fgaus_eta_model = GaussianTail("fgaus_eta_model", -1000, 1000)
         fgaus_eta_model.SetParameter(1, 0)
@@ -656,6 +662,9 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
                     result_arr.At(j).SetBinContent(i, fgaus_eta_model.GetParameter(j))
                     result_arr.At(j).SetBinError(i, fgaus_eta_model.GetParError(j))
             fgaus_eta_model.Draw("same")
+            draw_label(f"{hd.GetXaxis().GetBinLowEdge(i):.2f} < #it{{#eta}} < {hd.GetXaxis().GetBinUpEdge(i):.2f}", 0.3, 0.85, 0.03)
+            draw_label(f"#mu = {fgaus_eta_model.GetParameter(1):.2f} (ps)", 0.3, 0.8, 0.03)
+            draw_label(f"#sigma = {fgaus_eta_model.GetParameter(2):.2f} (ps)", 0.3, 0.75, 0.03)
             can.Modified()
             can.Update()
             # input("Press enter to continue")
@@ -664,7 +673,8 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
         draw_nice_frame(None, result_arr.At(1), [-100, 100], result_arr.At(1), "ps")
         result_arr.At(1).Draw("SAME")
         alignment = result_arr.At(1).Clone("alignment")
-        alignment.SaveAs("/tmp/eta_alignment.root")
+        if not os.path.exists("/tmp/eta_alignment.root"):
+            alignment.SaveAs("/tmp/eta_alignment.root")
         result_arr.At(2).Draw("same")
         leg.Draw()
         ptlabel.Draw()
@@ -859,7 +869,7 @@ def main(input_file_name="${HOME}/cernbox/Share/Sofia/LHC22m_523308_apass3_relva
     multiplicity_range = [0, 45]
     max_multiplicity = 25
     # Drawing the event time resolution
-    if 1:
+    if do_draw_ev_time_resolution_vs_mult:
         colors = ["#e41a1c", "#377eb8", "#4daf4a"]
         draw_nice_canvas("resolutionEvTimevsTOFMult")
         draw_nice_frame(None,

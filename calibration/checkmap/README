@@ -1,0 +1,11 @@
+# download FEELIGHT and channelCalib via timestamp (e.g. run 564400)
+o2-ccdb-downloadccdbfile -p TOF/Calib/FEELIGHT -t 1751772182000
+o2-ccdb-downloadccdbfile -p TOF/Calib/ChannelCalib -t 1751772182000
+
+# run check
+root checkmap.C 
+
+# if you want to fix the map by masking additional modules you can edit the macro (masking method) and switch off what you want following examples
+root checkmap.C
+# this will produce a new snapshot2.root in TOF/Calib/FEELIGHT dir
+

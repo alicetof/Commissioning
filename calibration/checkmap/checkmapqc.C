@@ -25,7 +25,7 @@ bool masking(int ch){
   return false;
 }
 
-void checkmapqc(){
+void checkmapqc(int run = 0, const char *period="no"){
   TFile *f = new TFile("TOF/Calib/ChannelCalib/snapshot.root");
   o2::dataformats::CalibTimeSlewingParamTOF *o = (o2::dataformats::CalibTimeSlewingParamTOF *) f->Get("ccdb_object");
   int nch = 91*96*18;
@@ -110,12 +110,6 @@ void checkmapqc(){
   c2->cd(1);
   h3->Draw("colz");
 
-  if(! checkNew){
-    TFile *fout = new TFile("TOF/Calib/FEELIGHT/snapshot2.root","RECREATE");
-    fout->WriteObjectAny(oo2, oo2->Class(), "ccdb_object");
-    fout->Close();
-  }
-
   if(! hhit){
     return;
   }
@@ -144,6 +138,7 @@ void checkmapqc(){
     }
   }
 
+
   hhit->Divide(hhit);
   // combine with problematics
   hhit->Multiply(h);
@@ -152,7 +147,44 @@ void checkmapqc(){
 
   printf("nActiveHitMap (extrapolated) = %d - ratio wrt expected = %.3f\n",int(hhit->Integral() * nact3 / h3->Integral()), hhit->Integral() / h3->Integral());
 
+  hhit->SetTitle(Form("%s %d: ratio wrt expected = %.4f",period,run,hhit->Integral() / h3->Integral()));
+  system(Form("echo %s %d %.4f>>checkmap_summary",period,run,hhit->Integral() / h3->Integral()));
+
   hhit->Add(h3, -1);
-  hhit->SetTitle("hit map&problematics - reference map");
+
+  TFile *fres = new TFile(Form("checkmap/%s_%d.root",period,run),"RECREATE");
+  c2->Write();
+  fres->Close();
+
+  if(! checkNew){
+    // re-masking
+    for(int i=0; i < nch; i++){
+      float sector = i/ninsec;
+      float istrip = (i%ninsec) / 96;
+      int chLoc = i%96;
+      int padz = chLoc/48;
+      int padx = chLoc%48;
+      sector += (padx+0.5)/48.;
+      istrip += (padz+0.5)/2.;
+
+      if(hhit->GetBinContent(hhit->GetXaxis()->FindBin(sector),hhit->GetYaxis()->FindBin(istrip)) < 0){
+//        printf("switch off %.2f %.2f\n",sector,istrip);
+        oo2->mChannelEnabled[i] = false;
+      }
+      else if(hhit->GetBinContent(hhit->GetXaxis()->FindBin(sector),hhit->GetYaxis()->FindBin(istrip)) > 0.1){
+//        printf("switch off %.2f %.2f\n",sector,istrip);
+        oo2->mChannelEnabled[i] = true;
+      }
+    }
+
+    TFile *fout;
+    if(run > 0){
+      fout = new TFile(Form("TOF/Calib/FEELIGHT/%d.root",run),"RECREATE");
+    } else {
+      fout = new TFile("TOF/Calib/FEELIGHT/snapshot2.root","RECREATE");
+    }
+    fout->WriteObjectAny(oo2, oo2->Class(), "ccdb_object");
+    fout->Close();
+  }
 
 }
